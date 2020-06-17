@@ -174,19 +174,28 @@ void loop()
             }
 
             int lineYStart = y + (GRAPH_HEIGHT / 4) + 2;
+            if(devicesHistory[foundDeviceIndex].signalLevelsIndex == i) {
+              lineYStart += 3;
+            }
             if(lineYStart > 240) {
               lineYStart = 240;
             }
+
             int lineYEnd = y - lineHeight + (GRAPH_HEIGHT / 4) + 2;
+            if(devicesHistory[foundDeviceIndex].signalLevelsIndex == i) {
+              lineYEnd += 3;
+            }
             if(lineYEnd > 240) {
               lineYEnd = 240;
             }
 
-            if(lineHeight >= 15) {
+            if(devicesHistory[foundDeviceIndex].signalLevelsIndex == i) {
+              tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_WHITE);
+            } else if(lineHeight >= 11) {
               tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_GREEN);
-            } else if(lineHeight >= 10) {
+            } else if(lineHeight >= 7) {
               tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_YELLOW);
-            } else if(lineHeight >= 5) {
+            } else if(lineHeight >= 3) {
               tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_ORANGE);
             } else {
               tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_RED);
