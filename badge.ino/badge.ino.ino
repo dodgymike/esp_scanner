@@ -100,8 +100,6 @@ void loop()
   pBLEScan->setInterval(100);
   pBLEScan->setWindow(99);  // less or equal setInterval value
 
-//  ScanParameters *scanParameters = new ScanParameters();
-
   while(true)
   {
       BLEScanResults foundDevices = pBLEScan->start(scanTime, false);
@@ -131,7 +129,7 @@ void loop()
             foundDeviceIndex = devicesHistoryCount - 1;
 
             strncpy(devicesHistory[foundDeviceIndex].name, deviceAddress, 49);
-            devicesHistory[foundDeviceIndex].name[50] = 0;
+            devicesHistory[foundDeviceIndex].name[49] = 0;
             
             devicesHistory[foundDeviceIndex].signalLevelsIndex = 0;
             for(int i = 0; i < DEVICE_HISTORY_SIZE; i++) {
@@ -145,27 +143,19 @@ void loop()
             devicesHistory[foundDeviceIndex].signalLevelsIndex = 0;
           }
 
-          char scanName[200];
+/*
           if(foundDevice.haveName()) {
-            sprintf(scanName, "%s (%d) %s", deviceAddress, foundDevice.getRSSI(), foundDevice.getName());
+            sprintf(devicesHistory[foundDeviceIndex].name, "%s (%d) %s", deviceAddress, foundDevice.getRSSI(), foundDevice.getName());
           } else {
-            sprintf(scanName, "%s (%d)", deviceAddress, foundDevice.getRSSI());
+            sprintf(devicesHistory[foundDeviceIndex].name, "%s (%d)", deviceAddress, foundDevice.getRSSI());
           }
-          
-          //if(foundDevice.getName() != NULL) {
-          /*
-          if(foundDevice.haveName()) {
-            sprintf(scanParameters->scanNames[i], "%s (%d) %s", deviceAddress, foundDevice.getRSSI(), foundDevice.getName());
-          } else {
-            sprintf(scanParameters->scanNames[i], "%s (%d)", deviceAddress, foundDevice.getRSSI());
-          }
+*/
+      }
 
-          scanParameters->scanRssis[i] = foundDevice.getRSSI();
-          */
-
-          int y = GRAPH_HEIGHT + (GRAPH_HEIGHT * i);
+      for(int foundDeviceIndex = 0; foundDeviceIndex < devicesHistoryCount; foundDeviceIndex++) {
+          int y = GRAPH_HEIGHT + (GRAPH_HEIGHT * foundDeviceIndex);
           tft.setCursor(GRAPH_HEIGHT, y);
-          tft.println(scanName);
+          tft.println(devicesHistory[foundDeviceIndex].name);
           for(int i = 0; i < DEVICE_HISTORY_SIZE; i++) {
             int lineHeight = (GRAPH_HEIGHT * ((devicesHistory[foundDeviceIndex].signalLevels[i] + 100.0f)/100.0f));
             int lineX = 240 - DEVICE_HISTORY_SIZE + i;
@@ -200,18 +190,8 @@ void loop()
             } else {
               tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_RED);
             }
-
-/*
-            if(devicesHistory[foundDeviceIndex].signalLevelsIndex == i) {
-              tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_RED);
-            } else {
-              tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_WHITE);
-            }
-*/
           }
       }
-
-//      scanParameters->scanCount = foundDevices.getCount();
 
       pBLEScan->clearResults();   // delete results fromBLEScan buffer to release memory
   }
