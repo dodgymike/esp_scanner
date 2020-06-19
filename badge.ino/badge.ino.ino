@@ -44,20 +44,121 @@ TFT_eSPI tft = TFT_eSPI();       // Invoke custom library
 #define SCAN_NAME_SIZE (20)
 #define GRAPH_HEIGHT (20.0f)
 
-/*
-struct ScanParameters {
-  char scanNames[SCAN_NAME_SIZE][50];
-  int scanRssis[SCAN_NAME_SIZE];
-  int scanCount;
-};
-*/
+#define DEVICE_ADDRESS_SIZE (50)
+#define DEVICE_HISTORY_SIZE (80)
 
-#define DEVICE_HISTORY_SIZE 80
+
+class ButtonState {
+  public:
+    bool up;
+    bool down;
+    bool left;
+    bool right;
+  
+    bool leftSelect;
+  
+    int upA;
+    int downA;
+    int leftA;
+    int rightA;
+  
+    int leftSelectA;
+  
+    int upCounter;
+    int downCounter;
+    int leftCounter;
+    int rightCounter;
+  
+    int leftSelectCounter;
+  
+    SemaphoreHandle_t xButtonSemaphore;
+
+  ButtonState()
+    : up(false), down(false), left(false), right(false), leftSelect(false), upA(0), downA(0), leftA(0), rightA(0), leftSelectA(0), upCounter(0), downCounter(0), leftCounter(0), rightCounter(0), leftSelectCounter(0)
+  {}
+};
+
+
+void buttonTask(void* parameter) {
+  ButtonState* buttonState = (ButtonState*)parameter;
+
+  /*
+  if ( xSemaphoreTake( xButtonSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {
+    buttonState = (ButtonState*) parameter;
+    
+    xSemaphoreGive( xButtonSemaphore );
+  }
+  */
+
+  while(true) {
+    int b1          = readAnalogSensorRaw(2);  // B
+    int b2          = readAnalogSensorRaw(4);
+    int cLeftSelect = readAnalogSensorRaw(12); // LEFT SELECT
+    int b4          = readAnalogSensorRaw(13);
+    int cUp         = readAnalogSensorRaw(14); // UP
+    int b6          = readAnalogSensorRaw(15); // A
+    int cRight      = readAnalogSensorRaw(27); // RIGHT
+    int cLeft       = readAnalogSensorRaw(32); // LEFT
+    int cDown       = readAnalogSensorRaw(33); // DOWN  
+
+    if ( xSemaphoreTake( buttonState->xButtonSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {
+      buttonState->upA         += cUp;
+      buttonState->downA       += cDown;
+      buttonState->leftA       += cLeft;
+      buttonState->rightA      += cRight;
+      buttonState->leftSelectA += cLeftSelect;
+      
+      buttonState->upCounter         += 1;
+      buttonState->downCounter       += 1;
+      buttonState->leftCounter       += 1;
+      buttonState->rightCounter      += 1;
+      buttonState->leftSelectCounter += 1;
+
+//      int upSelector         = buttonState->upA         / buttonState->upCounter;
+//      int downSelector       = buttonState->downA       / buttonState->downCounter;
+//      int leftSelector       = buttonState->leftA       / buttonState->leftCounter;
+//      int rightSelector      = buttonState->rightA      / buttonState->rightCounter;
+//      int leftSelectSelector = buttonState->leftSelectA / buttonState->leftSelectCounter;
+
+      int upSelector         = buttonState->upA         / 5;
+      int downSelector       = buttonState->downA       / 5;
+      int leftSelector       = buttonState->leftA       / 5;
+      int rightSelector      = buttonState->rightA      / 5;
+      int leftSelectSelector = buttonState->leftSelectA / 5;
+
+      buttonState->up = (upSelector < 30);
+      buttonState->down = (downSelector < 30);
+
+      Serial.println("===================");
+//      Serial.println(buttonState->upA);
+//      Serial.println(buttonState->upCounter);
+      Serial.println(upSelector);
+      Serial.println(buttonState->up);  
+      Serial.println(downSelector);
+      Serial.println(buttonState->down);  
+/*
+*/
+      
+      buttonState->upA         *= 0.8f;
+      buttonState->downA       *= 0.8f;
+      buttonState->leftA       *= 0.8f;
+      buttonState->rightA      *= 0.8f;
+      buttonState->leftSelectA *= 0.8f;
+
+      xSemaphoreGive( buttonState->xButtonSemaphore );
+    }
+    /*
+
+    */
+
+    delay(100);
+  }
+}
 
 class DeviceHistory {
 //  private:
   public:
-    char name[50];
+    char name[DEVICE_ADDRESS_SIZE];
     int signalLevels[DEVICE_HISTORY_SIZE];
     int signalLevelsIndex;
 
@@ -66,27 +167,110 @@ class DeviceHistory {
     {}
 
     bool checkName(const char* nameToCheck) {
-      return (strncmp(name, nameToCheck, 50) == 0);
+      return (strncmp(name, nameToCheck, DEVICE_ADDRESS_SIZE) == 0);
     }
 };
 
-//std::map<std::string, struct DeviceHistory*> devicesHistory;
-//std::map<std::string, std::string> devicesHistory;
-
 DeviceHistory devicesHistory[100];
 int devicesHistoryCount;
+int deviceOffset;
+
+ButtonState* buttonState = NULL;
 
 void setup()
 {   
   Serial.begin(BaudRate);
+  Serial.println("SETUP");
 
   tft.init();
   tft.setRotation(4);
   tft.fillScreen(TFT_BLACK);
 
+  Serial.println("AFTER TFT INIT");
+
   devicesHistoryCount = 0;
+  deviceOffset = 0;
+
+//  digitalWrite(2, LOW);  // B
+//  digitalWrite(4, LOW);
+//  digitalWrite(12, LOW); // LEFT SELECT
+//  digitalWrite(13, LOW); // RIGHT SELECT (NOT WORKING)
+  digitalWrite(14, LOW); // UP
+//  digitalWrite(15, LOW); // A
+//  digitalWrite(27, LOW); // RIGHT
+//  digitalWrite(32, LOW); // LEFT
+  digitalWrite(33, LOW); // DOWN
+
+//  pinMode(2, INPUT);  // B
+//  pinMode(4, INPUT);
+//  pinMode(12, INPUT); // LEFT SELECT
+//  pinMode(13, INPUT);
+  pinMode(14, INPUT); // UP
+//  pinMode(15, INPUT); // A
+//  pinMode(27, INPUT); // RIGHT
+//  pinMode(32, INPUT);
+  pinMode(33, INPUT); // DOWN
+
+//  pinMode(19, OUTPUT);
+//  pinMode(22, OUTPUT);
+//  
+//  digitalWrite(19, HIGH);
+//  digitalWrite(22, HIGH);
+
+  Serial.println("BUTTON");
+  buttonState = new ButtonState();
+
+  Serial.println("CREATE");
+  buttonState->xButtonSemaphore = xSemaphoreCreateMutex();  // Create a mutex semaphore we will use to manage the scans
+  Serial.println("GIVE");
+  xSemaphoreGive(buttonState->xButtonSemaphore);  // Make the scan available for use, by "Giving" the Semaphore.
+
+
+  Serial.println("Starting buttonTask");
+/*
+*/  
+  xTaskCreate(
+    buttonTask,       /* Task function. */
+    "buttonTask",     /* String with name of task. */
+    25000,             /* Stack size in words. */
+    (void*)buttonState,              /* Parameter passed as input of the task */
+    2,                 /* Priority of the task. */
+    NULL);             /* Task handle. */
 }
 
+#define minimum(a,b) (((a) < (b)) ? (a) : (b))
+
+static int TOUCH_SENSE = 10;
+
+int inputVal = 0;
+bool readAnalogSensor(int pin)
+{
+  inputVal = touchRead(pin);
+
+/*
+  Serial.print("Touch value is Pin");
+  Serial.print(pin);
+  Serial.print(" = ");
+  Serial.println( inputVal);
+*/
+
+  bool buttonPressed = inputVal < TOUCH_SENSE;
+
+  return buttonPressed;
+}
+
+int readAnalogSensorRaw(int pin) {
+  inputVal = touchRead(pin);
+
+/*
+  Serial.print("Touch value is Pin");
+  Serial.print(pin);
+  Serial.print(" = ");
+  Serial.println( inputVal);
+*/
+
+  return inputVal;
+}
 
 void loop()
 {
@@ -128,8 +312,8 @@ void loop()
             Serial.println("");
             foundDeviceIndex = devicesHistoryCount - 1;
 
-            strncpy(devicesHistory[foundDeviceIndex].name, deviceAddress, 49);
-            devicesHistory[foundDeviceIndex].name[49] = 0;
+            strncpy(devicesHistory[foundDeviceIndex].name, deviceAddress, (DEVICE_ADDRESS_SIZE - 1));
+            devicesHistory[foundDeviceIndex].name[(DEVICE_ADDRESS_SIZE - 1)] = 0;
             
             devicesHistory[foundDeviceIndex].signalLevelsIndex = 0;
             for(int i = 0; i < DEVICE_HISTORY_SIZE; i++) {
@@ -142,14 +326,6 @@ void loop()
           if(devicesHistory[foundDeviceIndex].signalLevelsIndex >= DEVICE_HISTORY_SIZE) {
             devicesHistory[foundDeviceIndex].signalLevelsIndex = 0;
           }
-
-/*
-          if(foundDevice.haveName()) {
-            sprintf(devicesHistory[foundDeviceIndex].name, "%s (%d) %s", deviceAddress, foundDevice.getRSSI(), foundDevice.getName());
-          } else {
-            sprintf(devicesHistory[foundDeviceIndex].name, "%s (%d)", deviceAddress, foundDevice.getRSSI());
-          }
-*/
       }
 
       for(int foundDeviceIndex = 0; foundDeviceIndex < devicesHistoryCount; foundDeviceIndex++) {
@@ -193,6 +369,7 @@ void loop()
           }
       }
 
+  
       pBLEScan->clearResults();   // delete results fromBLEScan buffer to release memory
   }
 }
