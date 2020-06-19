@@ -286,6 +286,23 @@ void loop()
 
   while(true)
   {
+      if ( xSemaphoreTake( buttonState->xButtonSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {
+        if(buttonState->up) {
+          deviceOffset--;
+        } else if(buttonState->down) {
+          deviceOffset++;
+        }
+
+        xSemaphoreGive( buttonState->xButtonSemaphore );
+      }
+
+      if(deviceOffset < 0) {
+        deviceOffset = devicesHistoryCount - 1;
+      } else if(deviceOffset >= devicesHistoryCount) {
+        deviceOffset = 0;
+      }
+  
+
       BLEScanResults foundDevices = pBLEScan->start(scanTime, false);
       tft.fillScreen(TFT_BLACK);
   
@@ -328,10 +345,27 @@ void loop()
           }
       }
 
-      for(int foundDeviceIndex = 0; foundDeviceIndex < devicesHistoryCount; foundDeviceIndex++) {
-          int y = GRAPH_HEIGHT + (GRAPH_HEIGHT * foundDeviceIndex);
+      int displayDeviceStartIndex = 0;
+      int displayDeviceEndIndex = devicesHistoryCount;
+      if(displayDeviceEndIndex > 9) {
+        if(deviceOffset >= 5) {
+          displayDeviceStartIndex = deviceOffset - 4;
+          displayDeviceEndIndex = deviceOffset + 4 + 1;
+        } else {
+          displayDeviceStartIndex = 0;
+          displayDeviceEndIndex = 9;
+        }
+      }
+      
+      for(int foundDeviceIndex = displayDeviceStartIndex; foundDeviceIndex < displayDeviceEndIndex; foundDeviceIndex++) {
+          int y = GRAPH_HEIGHT + (GRAPH_HEIGHT * (foundDeviceIndex - displayDeviceStartIndex));
           tft.setCursor(GRAPH_HEIGHT, y);
           tft.println(devicesHistory[foundDeviceIndex].name);
+
+          if(deviceOffset == foundDeviceIndex) {
+            tft.drawCircle(GRAPH_HEIGHT / 2, y, 3, TFT_WHITE);
+          }
+
           for(int i = 0; i < DEVICE_HISTORY_SIZE; i++) {
             int lineHeight = (GRAPH_HEIGHT * ((devicesHistory[foundDeviceIndex].signalLevels[i] + 100.0f)/100.0f));
             int lineX = 240 - DEVICE_HISTORY_SIZE + i;
@@ -368,7 +402,6 @@ void loop()
             }
           }
       }
-
   
       pBLEScan->clearResults();   // delete results fromBLEScan buffer to release memory
   }
