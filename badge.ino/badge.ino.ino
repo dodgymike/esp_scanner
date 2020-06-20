@@ -78,7 +78,7 @@ class ButtonState {
 
       if ( xSemaphoreTake(xButtonSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {  
         if(up) {
-         upA = 200;
+//         upA = 200;
           
           rv = true;
           up = false;
@@ -95,7 +95,7 @@ class ButtonState {
 
       if ( xSemaphoreTake(xButtonSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {  
         if(down) {
-          downA = 200;
+//          downA = 200;
           
           rv = true;
           down = false;
@@ -131,15 +131,38 @@ class DeviceHistory {
 };
 
 class DevicesHistory {
-  public:
-    DeviceHistory history[100];
+  private:
     int count;
+    SemaphoreHandle_t xCountSemaphore;
+      
+  public:
+    int getCount() {
+      int rv = 0;
+      
+      if ( xSemaphoreTake(xCountSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {  
+        rv = count;
+        xSemaphoreGive(xCountSemaphore);
+      }      
+
+      return rv;
+    }
+
+    void incrementCount() {
+      if ( xSemaphoreTake(xCountSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {  
+        count++;
+        xSemaphoreGive(xCountSemaphore);
+      }      
+    }
+
+    DeviceHistory history[100];
+    
     SemaphoreHandle_t xDevicesSemaphore;
 
     DevicesHistory()
-      : count(0), xDevicesSemaphore(xSemaphoreCreateMutex())
+      : count(0), xDevicesSemaphore(xSemaphoreCreateMutex()),  xCountSemaphore(xSemaphoreCreateMutex())
     {
       xSemaphoreGive(xDevicesSemaphore);
+      xSemaphoreGive(xCountSemaphore);
     }
 };
 
@@ -160,16 +183,15 @@ void bluetoothTask(void* parameter) {
     BLEScanResults foundDevices = pBLEScan->start(scanTime, false);
 
     if ( xSemaphoreTake( devicesHistory->xDevicesSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {
-      for(int i = 0; i < foundDevices.getCount(); i++) 
-      {
+      for(int i = 0; i < foundDevices.getCount(); i++) {
           BLEAdvertisedDevice foundDevice = foundDevices.getDevice(i);
-    
+      
           char deviceAddress[200];
           bzero(deviceAddress, 200);
           foundDevice.getAddress().toString().copy(deviceAddress, 180);
           
           int foundDeviceIndex = -1;
-          for(int deviceIndex = 0; deviceIndex < devicesHistory->count; deviceIndex++) {
+          for(int deviceIndex = 0; deviceIndex < devicesHistory->getCount(); deviceIndex++) {
              if(devicesHistory->history[deviceIndex].checkName(deviceAddress)) {
                   foundDeviceIndex = deviceIndex;
                   break;
@@ -177,12 +199,9 @@ void bluetoothTask(void* parameter) {
           }
           
           if(foundDeviceIndex == -1) {
-            devicesHistory->count++;
-//            Serial.print("DHC: ");
-//            Serial.print(devicesHistory->count);
-//            Serial.println("");
-            foundDeviceIndex = devicesHistory->count - 1;
-    
+            devicesHistory->incrementCount();
+            foundDeviceIndex = devicesHistory->getCount() - 1;
+      
             strncpy(devicesHistory->history[foundDeviceIndex].name, deviceAddress, (DEVICE_ADDRESS_SIZE - 1));
             devicesHistory->history[foundDeviceIndex].name[(DEVICE_ADDRESS_SIZE - 1)] = 0;
             
@@ -212,28 +231,28 @@ void buttonTask(void* parameter) {
   ButtonState* buttonState = (ButtonState*)parameter;
 
   while(true) {
-    int b1          = readAnalogSensorRaw(2);  // B
-    int b2          = readAnalogSensorRaw(4);
-    int cLeftSelect = readAnalogSensorRaw(12); // LEFT SELECT
-    int b4          = readAnalogSensorRaw(13);
+//    int b1          = readAnalogSensorRaw(2);  // B
+//    int b2          = readAnalogSensorRaw(4);
+//    int cLeftSelect = readAnalogSensorRaw(12); // LEFT SELECT
+//    int b4          = readAnalogSensorRaw(13);
     int cUp         = readAnalogSensorRaw(14); // UP
-    int b6          = readAnalogSensorRaw(15); // A
-    int cRight      = readAnalogSensorRaw(27); // RIGHT
-    int cLeft       = readAnalogSensorRaw(32); // LEFT
+//    int b6          = readAnalogSensorRaw(15); // A
+//    int cRight      = readAnalogSensorRaw(27); // RIGHT
+//    int cLeft       = readAnalogSensorRaw(32); // LEFT
     int cDown       = readAnalogSensorRaw(33); // DOWN  
 
     if ( xSemaphoreTake( buttonState->xButtonSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {
-      buttonState->upA         += cUp;
-      buttonState->downA       += cDown;
-      buttonState->leftA       += cLeft;
-      buttonState->rightA      += cRight;
-      buttonState->leftSelectA += cLeftSelect;
+//      buttonState->upA         += cUp;
+//      buttonState->downA       += cDown;
+//      buttonState->leftA       += cLeft;
+//      buttonState->rightA      += cRight;
+//      buttonState->leftSelectA += cLeftSelect;
       
-      buttonState->upCounter         += 1;
-      buttonState->downCounter       += 1;
-      buttonState->leftCounter       += 1;
-      buttonState->rightCounter      += 1;
-      buttonState->leftSelectCounter += 1;
+//      buttonState->upCounter         += 1;
+//      buttonState->downCounter       += 1;
+//      buttonState->leftCounter       += 1;
+//      buttonState->rightCounter      += 1;
+//      buttonState->leftSelectCounter += 1;
 
 //      int upSelector         = buttonState->upA         / buttonState->upCounter;
 //      int downSelector       = buttonState->downA       / buttonState->downCounter;
@@ -241,14 +260,37 @@ void buttonTask(void* parameter) {
 //      int rightSelector      = buttonState->rightA      / buttonState->rightCounter;
 //      int leftSelectSelector = buttonState->leftSelectA / buttonState->leftSelectCounter;
 
-      int upSelector         = buttonState->upA         / 5;
-      int downSelector       = buttonState->downA       / 5;
-      int leftSelector       = buttonState->leftA       / 5;
-      int rightSelector      = buttonState->rightA      / 5;
-      int leftSelectSelector = buttonState->leftSelectA / 5;
+//      int upSelector         = buttonState->upA         / 5;
+//      int downSelector       = buttonState->downA       / 5;
+//      int leftSelector       = buttonState->leftA       / 5;
+//      int rightSelector      = buttonState->rightA      / 5;
+//      int leftSelectSelector = buttonState->leftSelectA / 5;
 
-      buttonState->up = (upSelector < 30);
-      buttonState->down = (downSelector < 30);
+/*
+      if(cUp < 10) {
+        buttonState->upCounter++;
+      } else {
+        buttonState->upCounter /= 2;
+      }
+      if(buttonState->upCounter >= 10) {
+        buttonState->upCounter = 10;
+      }
+      
+      if(cDown < 10) {
+        buttonState->downCounter++;
+      } else {
+        buttonState->downCounter /= 2;
+      }
+      if(buttonState->downCounter >= 10) {
+        buttonState->downCounter = 10;
+      }
+
+      buttonState->up = (buttonState->upCounter >= 2);
+      buttonState->down = (buttonState->downCounter >= 2);
+*/
+
+      buttonState->up = (cUp < 10);
+      buttonState->down = (cDown < 10);
 
 /*
       Serial.println("===================");
@@ -256,23 +298,25 @@ void buttonTask(void* parameter) {
 //      Serial.println(buttonState->upCounter);
       Serial.println(upSelector);
       Serial.println(buttonState->up);  
+      Serial.println(cUp);  
+      Serial.println("===");
       Serial.println(downSelector);
       Serial.println(buttonState->down);  
+      Serial.println(cDown);  
 */
-      
-      buttonState->upA         *= 0.8f;
-      buttonState->downA       *= 0.8f;
-      buttonState->leftA       *= 0.8f;
-      buttonState->rightA      *= 0.8f;
-      buttonState->leftSelectA *= 0.8f;
+
+/*
+      buttonState->upA         *= 2.0f;
+      buttonState->downA       *= 2.0f;
+      buttonState->leftA       *= 2.0f;
+      buttonState->rightA      *= 2.0f;
+      buttonState->leftSelectA *= 2.0f;
+*/
 
       xSemaphoreGive( buttonState->xButtonSemaphore );
     }
-    /*
 
-    */
-
-    delay(100);
+    delay(50);
   }
 }
 
@@ -397,33 +441,33 @@ void loop()
     deviceOffset++;
   }
   
-  if ( xSemaphoreTake( devicesHistory->xDevicesSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {
-    //tft.fillScreen(TFT_BLACK);
+  //tft.fillScreen(TFT_BLACK);
 
 //    Serial.println("CHECKING SCREEN");
-    if(deviceOffset < 0) {
-      deviceOffset = devicesHistory->count - 1;
-    } else if(deviceOffset >= devicesHistory->count) {
-      deviceOffset = 0;
+  if(deviceOffset < 0) {
+    deviceOffset = devicesHistory->getCount() - 1;
+  } else if(deviceOffset >= devicesHistory->getCount()) {
+    deviceOffset = 0;
+  }
+  
+  int displayDeviceStartIndex = 0;
+  int displayDeviceEndIndex = devicesHistory->getCount();
+  if(displayDeviceEndIndex > 11) {
+    if(deviceOffset >= 5) {
+      displayDeviceStartIndex = deviceOffset - 5;
+      displayDeviceEndIndex = deviceOffset + 5 + 1;
+    } else {
+      displayDeviceStartIndex = 0;
+      displayDeviceEndIndex = 11;
     }
-    
-    int displayDeviceStartIndex = 0;
-    int displayDeviceEndIndex = devicesHistory->count;
-    if(displayDeviceEndIndex > 11) {
-      if(deviceOffset >= 5) {
-        displayDeviceStartIndex = deviceOffset - 5;
-        displayDeviceEndIndex = deviceOffset + 5 + 1;
-      } else {
-        displayDeviceStartIndex = 0;
-        displayDeviceEndIndex = 11;
-      }
-    }
+  }
 
-    if(displayDeviceEndIndex > devicesHistory->count) {
-      displayDeviceEndIndex = devicesHistory->count;
-    }
-    
+  if(displayDeviceEndIndex > devicesHistory->getCount()) {
+    displayDeviceEndIndex = devicesHistory->getCount();
+  }
+  
     for(int foundDeviceIndex = displayDeviceStartIndex; foundDeviceIndex < displayDeviceEndIndex; foundDeviceIndex++) {
+      if ( xSemaphoreTake( devicesHistory->xDevicesSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {
         int y = GRAPH_HEIGHT + (GRAPH_HEIGHT * (foundDeviceIndex - displayDeviceStartIndex));
         tft.setCursor(GRAPH_HEIGHT, y);
         tft.println(devicesHistory->history[foundDeviceIndex].name);
@@ -473,8 +517,7 @@ void loop()
             tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_RED);
           }
        }
-    }
-    
-    xSemaphoreGive(devicesHistory->xDevicesSemaphore);
+      xSemaphoreGive(devicesHistory->xDevicesSemaphore);
+    }  
   }
 }
