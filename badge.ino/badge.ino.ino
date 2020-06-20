@@ -289,8 +289,8 @@ void buttonTask(void* parameter) {
       buttonState->down = (buttonState->downCounter >= 2);
 */
 
-      buttonState->up = (cUp < 10);
-      buttonState->down = (cDown < 10);
+      buttonState->up = (cUp < 19);
+      buttonState->down = (cDown < 19);
 
 /*
       Serial.println("===================");
@@ -426,7 +426,7 @@ unsigned long previousTime = 0;
 void loop()
 {
   unsigned long currentTime = millis();
-  if(currentTime - previousTime < 500) {
+  if(currentTime - previousTime < 100) {
     return;
   }
 
