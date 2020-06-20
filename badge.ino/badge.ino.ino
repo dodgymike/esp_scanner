@@ -73,22 +73,143 @@ class ButtonState {
   
     SemaphoreHandle_t xButtonSemaphore;
 
+    bool upPressed() {
+      bool rv = false;
+
+      if ( xSemaphoreTake(xButtonSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {  
+        if(up) {
+         upA = 200;
+          
+          rv = true;
+          up = false;
+        }
+
+        xSemaphoreGive(xButtonSemaphore);
+      }
+
+      return rv;
+    }
+
+    bool downPressed() {
+      bool rv = false;
+
+      if ( xSemaphoreTake(xButtonSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {  
+        if(down) {
+          downA = 200;
+          
+          rv = true;
+          down = false;
+        }
+
+        xSemaphoreGive(xButtonSemaphore);
+      }
+
+      return rv;
+    }
+
   ButtonState()
-    : up(false), down(false), left(false), right(false), leftSelect(false), upA(0), downA(0), leftA(0), rightA(0), leftSelectA(0), upCounter(0), downCounter(0), leftCounter(0), rightCounter(0), leftSelectCounter(0)
-  {}
+    : up(false), down(false), left(false), right(false), leftSelect(false), upA(0), downA(0), leftA(0), rightA(0), leftSelectA(0), upCounter(0), downCounter(0), leftCounter(0), rightCounter(0), leftSelectCounter(0), xButtonSemaphore(xSemaphoreCreateMutex())
+    {
+      xSemaphoreGive(xButtonSemaphore);
+    }
 };
+
+class DeviceHistory {
+//  private:
+  public:
+    char name[DEVICE_ADDRESS_SIZE];
+    int signalLevels[DEVICE_HISTORY_SIZE];
+    int signalLevelsIndex;
+
+    DeviceHistory()
+      : name(""), signalLevelsIndex(0)
+    {}
+
+    bool checkName(const char* nameToCheck) {
+      return (strncmp(name, nameToCheck, DEVICE_ADDRESS_SIZE) == 0);
+    }
+};
+
+class DevicesHistory {
+  public:
+    DeviceHistory history[100];
+    int count;
+    SemaphoreHandle_t xDevicesSemaphore;
+
+    DevicesHistory()
+      : count(0), xDevicesSemaphore(xSemaphoreCreateMutex())
+    {
+      xSemaphoreGive(xDevicesSemaphore);
+    }
+};
+
+void bluetoothTask(void* parameter) {
+  DevicesHistory* devicesHistory = (DevicesHistory*)parameter;
+  
+  int scanTime = 1; //In seconds
+  int scanIndex = 0;
+  
+  BLEDevice::init("");
+  BLEScan* pBLEScan = BLEDevice::getScan(); //create new scan
+  //pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
+  pBLEScan->setActiveScan(true); //active scan uses more power, but get results faster
+  pBLEScan->setInterval(100);
+  pBLEScan->setWindow(99);  // less or equal setInterval value
+
+  while(true) {
+    BLEScanResults foundDevices = pBLEScan->start(scanTime, false);
+
+    if ( xSemaphoreTake( devicesHistory->xDevicesSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {
+      for(int i = 0; i < foundDevices.getCount(); i++) 
+      {
+          BLEAdvertisedDevice foundDevice = foundDevices.getDevice(i);
+    
+          char deviceAddress[200];
+          bzero(deviceAddress, 200);
+          foundDevice.getAddress().toString().copy(deviceAddress, 180);
+          
+          int foundDeviceIndex = -1;
+          for(int deviceIndex = 0; deviceIndex < devicesHistory->count; deviceIndex++) {
+             if(devicesHistory->history[deviceIndex].checkName(deviceAddress)) {
+                  foundDeviceIndex = deviceIndex;
+                  break;
+             }
+          }
+          
+          if(foundDeviceIndex == -1) {
+            devicesHistory->count++;
+//            Serial.print("DHC: ");
+//            Serial.print(devicesHistory->count);
+//            Serial.println("");
+            foundDeviceIndex = devicesHistory->count - 1;
+    
+            strncpy(devicesHistory->history[foundDeviceIndex].name, deviceAddress, (DEVICE_ADDRESS_SIZE - 1));
+            devicesHistory->history[foundDeviceIndex].name[(DEVICE_ADDRESS_SIZE - 1)] = 0;
+            
+            devicesHistory->history[foundDeviceIndex].signalLevelsIndex = 0;
+            for(int i = 0; i < DEVICE_HISTORY_SIZE; i++) {
+              devicesHistory->history[foundDeviceIndex].signalLevels[i] = -100;
+            }
+          }
+          
+          devicesHistory->history[foundDeviceIndex].signalLevels[devicesHistory->history[foundDeviceIndex].signalLevelsIndex] = foundDevice.getRSSI();
+          devicesHistory->history[foundDeviceIndex].signalLevelsIndex++;
+          if(devicesHistory->history[foundDeviceIndex].signalLevelsIndex >= DEVICE_HISTORY_SIZE) {
+            devicesHistory->history[foundDeviceIndex].signalLevelsIndex = 0;
+          }
+      }
+      
+      xSemaphoreGive( devicesHistory->xDevicesSemaphore );
+    }
+         
+    pBLEScan->clearResults();   // delete results fromBLEScan buffer to release memory
+    delay(100);
+  }
+}
 
 
 void buttonTask(void* parameter) {
   ButtonState* buttonState = (ButtonState*)parameter;
-
-  /*
-  if ( xSemaphoreTake( xButtonSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {
-    buttonState = (ButtonState*) parameter;
-    
-    xSemaphoreGive( xButtonSemaphore );
-  }
-  */
 
   while(true) {
     int b1          = readAnalogSensorRaw(2);  // B
@@ -129,6 +250,7 @@ void buttonTask(void* parameter) {
       buttonState->up = (upSelector < 30);
       buttonState->down = (downSelector < 30);
 
+/*
       Serial.println("===================");
 //      Serial.println(buttonState->upA);
 //      Serial.println(buttonState->upCounter);
@@ -136,7 +258,6 @@ void buttonTask(void* parameter) {
       Serial.println(buttonState->up);  
       Serial.println(downSelector);
       Serial.println(buttonState->down);  
-/*
 */
       
       buttonState->upA         *= 0.8f;
@@ -155,27 +276,9 @@ void buttonTask(void* parameter) {
   }
 }
 
-class DeviceHistory {
-//  private:
-  public:
-    char name[DEVICE_ADDRESS_SIZE];
-    int signalLevels[DEVICE_HISTORY_SIZE];
-    int signalLevelsIndex;
-
-    DeviceHistory()
-      : name(""), signalLevelsIndex(0)
-    {}
-
-    bool checkName(const char* nameToCheck) {
-      return (strncmp(name, nameToCheck, DEVICE_ADDRESS_SIZE) == 0);
-    }
-};
-
-DeviceHistory devicesHistory[100];
-int devicesHistoryCount;
 int deviceOffset;
-
 ButtonState* buttonState = NULL;
+DevicesHistory* devicesHistory = NULL;
 
 void setup()
 {   
@@ -188,7 +291,10 @@ void setup()
 
   Serial.println("AFTER TFT INIT");
 
-  devicesHistoryCount = 0;
+  Serial.println("BUTTON");
+  buttonState = new ButtonState();
+
+  devicesHistory = new DevicesHistory();
   deviceOffset = 0;
 
 //  digitalWrite(2, LOW);  // B
@@ -217,15 +323,6 @@ void setup()
 //  digitalWrite(19, HIGH);
 //  digitalWrite(22, HIGH);
 
-  Serial.println("BUTTON");
-  buttonState = new ButtonState();
-
-  Serial.println("CREATE");
-  buttonState->xButtonSemaphore = xSemaphoreCreateMutex();  // Create a mutex semaphore we will use to manage the scans
-  Serial.println("GIVE");
-  xSemaphoreGive(buttonState->xButtonSemaphore);  // Make the scan available for use, by "Giving" the Semaphore.
-
-
   Serial.println("Starting buttonTask");
 /*
 */  
@@ -234,6 +331,14 @@ void setup()
     "buttonTask",     /* String with name of task. */
     25000,             /* Stack size in words. */
     (void*)buttonState,              /* Parameter passed as input of the task */
+    2,                 /* Priority of the task. */
+    NULL);             /* Task handle. */
+
+  xTaskCreate(
+    bluetoothTask,       /* Task function. */
+    "bluetoothTask",     /* String with name of task. */
+    25000,             /* Stack size in words. */
+    (void*)devicesHistory,              /* Parameter passed as input of the task */
     2,                 /* Priority of the task. */
     NULL);             /* Task handle. */
 }
@@ -272,137 +377,104 @@ int readAnalogSensorRaw(int pin) {
   return inputVal;
 }
 
+unsigned long previousTime = 0;
+
 void loop()
 {
-  int scanTime = 1; //In seconds
-  int scanIndex = 0;
+  unsigned long currentTime = millis();
+  if(currentTime - previousTime < 500) {
+    return;
+  }
+
+  previousTime = currentTime;
   
-  BLEDevice::init("");
-  BLEScan* pBLEScan = BLEDevice::getScan(); //create new scan
-  //pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
-  pBLEScan->setActiveScan(true); //active scan uses more power, but get results faster
-  pBLEScan->setInterval(100);
-  pBLEScan->setWindow(99);  // less or equal setInterval value
-
-  while(true)
-  {
-      if ( xSemaphoreTake( buttonState->xButtonSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {
-        if(buttonState->up) {
-          deviceOffset--;
-        } else if(buttonState->down) {
-          deviceOffset++;
-        }
-
-        xSemaphoreGive( buttonState->xButtonSemaphore );
-      }
-
-      if(deviceOffset < 0) {
-        deviceOffset = devicesHistoryCount - 1;
-      } else if(deviceOffset >= devicesHistoryCount) {
-        deviceOffset = 0;
-      }
+//  Serial.println("CHECKING BUTTONS");
+  if(buttonState->upPressed()) {
+    deviceOffset--;
+    tft.fillScreen(TFT_BLACK);
+  } else if(buttonState->downPressed()) {
+    tft.fillScreen(TFT_BLACK);
+    deviceOffset++;
+  }
   
+  if ( xSemaphoreTake( devicesHistory->xDevicesSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {
+    //tft.fillScreen(TFT_BLACK);
 
-      BLEScanResults foundDevices = pBLEScan->start(scanTime, false);
-      tft.fillScreen(TFT_BLACK);
-  
-      for(int i = 0; i < foundDevices.getCount(); i++) 
-      {
-          BLEAdvertisedDevice foundDevice = foundDevices.getDevice(i);
-
-          char deviceAddress[200];
-          bzero(deviceAddress, 200);
-          foundDevice.getAddress().toString().copy(deviceAddress, 180);
-          
-          int foundDeviceIndex = -1;
-          for(int deviceIndex = 0; deviceIndex < devicesHistoryCount; deviceIndex++) {
-             if(devicesHistory[deviceIndex].checkName(deviceAddress)) {
-                  foundDeviceIndex = deviceIndex;
-                  break;
-             }
-          }
-          
-          if(foundDeviceIndex == -1) {
-            devicesHistoryCount++;
-            Serial.print("DHC: ");
-            Serial.print(devicesHistoryCount);
-            Serial.println("");
-            foundDeviceIndex = devicesHistoryCount - 1;
-
-            strncpy(devicesHistory[foundDeviceIndex].name, deviceAddress, (DEVICE_ADDRESS_SIZE - 1));
-            devicesHistory[foundDeviceIndex].name[(DEVICE_ADDRESS_SIZE - 1)] = 0;
-            
-            devicesHistory[foundDeviceIndex].signalLevelsIndex = 0;
-            for(int i = 0; i < DEVICE_HISTORY_SIZE; i++) {
-              devicesHistory[foundDeviceIndex].signalLevels[i] = -100;
-            }
-          }
-          
-          devicesHistory[foundDeviceIndex].signalLevels[devicesHistory[foundDeviceIndex].signalLevelsIndex] = foundDevice.getRSSI();
-          devicesHistory[foundDeviceIndex].signalLevelsIndex++;
-          if(devicesHistory[foundDeviceIndex].signalLevelsIndex >= DEVICE_HISTORY_SIZE) {
-            devicesHistory[foundDeviceIndex].signalLevelsIndex = 0;
-          }
+//    Serial.println("CHECKING SCREEN");
+    if(deviceOffset < 0) {
+      deviceOffset = devicesHistory->count - 1;
+    } else if(deviceOffset >= devicesHistory->count) {
+      deviceOffset = 0;
+    }
+    
+    int displayDeviceStartIndex = 0;
+    int displayDeviceEndIndex = devicesHistory->count;
+    if(displayDeviceEndIndex > 11) {
+      if(deviceOffset >= 5) {
+        displayDeviceStartIndex = deviceOffset - 5;
+        displayDeviceEndIndex = deviceOffset + 5 + 1;
+      } else {
+        displayDeviceStartIndex = 0;
+        displayDeviceEndIndex = 11;
       }
+    }
 
-      int displayDeviceStartIndex = 0;
-      int displayDeviceEndIndex = devicesHistoryCount;
-      if(displayDeviceEndIndex > 9) {
-        if(deviceOffset >= 5) {
-          displayDeviceStartIndex = deviceOffset - 4;
-          displayDeviceEndIndex = deviceOffset + 4 + 1;
+    if(displayDeviceEndIndex > devicesHistory->count) {
+      displayDeviceEndIndex = devicesHistory->count;
+    }
+    
+    for(int foundDeviceIndex = displayDeviceStartIndex; foundDeviceIndex < displayDeviceEndIndex; foundDeviceIndex++) {
+        int y = GRAPH_HEIGHT + (GRAPH_HEIGHT * (foundDeviceIndex - displayDeviceStartIndex));
+        tft.setCursor(GRAPH_HEIGHT, y);
+        tft.println(devicesHistory->history[foundDeviceIndex].name);
+    
+        if(deviceOffset == foundDeviceIndex) {
+          tft.fillCircle(GRAPH_HEIGHT / 2, y, 3, TFT_WHITE);
         } else {
-          displayDeviceStartIndex = 0;
-          displayDeviceEndIndex = 9;
+          tft.fillCircle(GRAPH_HEIGHT / 2, y, 3, TFT_BLACK);
         }
-      }
-      
-      for(int foundDeviceIndex = displayDeviceStartIndex; foundDeviceIndex < displayDeviceEndIndex; foundDeviceIndex++) {
-          int y = GRAPH_HEIGHT + (GRAPH_HEIGHT * (foundDeviceIndex - displayDeviceStartIndex));
-          tft.setCursor(GRAPH_HEIGHT, y);
-          tft.println(devicesHistory[foundDeviceIndex].name);
-
-          if(deviceOffset == foundDeviceIndex) {
-            tft.drawCircle(GRAPH_HEIGHT / 2, y, 3, TFT_WHITE);
+    
+        for(int i = 0; i < DEVICE_HISTORY_SIZE; i++) {
+          int lineHeight = (GRAPH_HEIGHT * ((devicesHistory->history[foundDeviceIndex].signalLevels[i] + 100.0f)/100.0f));
+          int lineX = 240 - DEVICE_HISTORY_SIZE + i;
+          if(lineX > 240) {
+            lineX = 240;
           }
-
-          for(int i = 0; i < DEVICE_HISTORY_SIZE; i++) {
-            int lineHeight = (GRAPH_HEIGHT * ((devicesHistory[foundDeviceIndex].signalLevels[i] + 100.0f)/100.0f));
-            int lineX = 240 - DEVICE_HISTORY_SIZE + i;
-            if(lineX > 240) {
-              lineX = 240;
-            }
-
-            int lineYStart = y + (GRAPH_HEIGHT / 4) + 2;
-            if(devicesHistory[foundDeviceIndex].signalLevelsIndex == i) {
-              lineYStart += 3;
-            }
-            if(lineYStart > 240) {
-              lineYStart = 240;
-            }
-
-            int lineYEnd = y - lineHeight + (GRAPH_HEIGHT / 4) + 2;
-            if(devicesHistory[foundDeviceIndex].signalLevelsIndex == i) {
-              lineYEnd += 3;
-            }
-            if(lineYEnd > 240) {
-              lineYEnd = 240;
-            }
-
-            if(devicesHistory[foundDeviceIndex].signalLevelsIndex == i) {
-              tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_WHITE);
-            } else if(lineHeight >= 11) {
-              tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_GREEN);
-            } else if(lineHeight >= 7) {
-              tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_YELLOW);
-            } else if(lineHeight >= 3) {
-              tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_ORANGE);
-            } else {
-              tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_RED);
-            }
+    
+          tft.drawLine(lineX, y, lineX, y + GRAPH_HEIGHT, TFT_BLACK);
+          
+          int lineYStart = y + (GRAPH_HEIGHT / 4) + 2;          
+          if(devicesHistory->history[foundDeviceIndex].signalLevelsIndex == i) {
+            lineYStart += 3;
+          } else {
+            tft.drawLine(lineX, lineYStart + 1, lineX, lineYStart + 3, TFT_BLACK);
           }
-      }
-  
-      pBLEScan->clearResults();   // delete results fromBLEScan buffer to release memory
+          if(lineYStart > 240) {
+            lineYStart = 240;
+          }
+    
+          int lineYEnd = y - lineHeight + (GRAPH_HEIGHT / 4) + 2;
+          if(devicesHistory->history[foundDeviceIndex].signalLevelsIndex == i) {
+            lineYEnd += 3;
+          }
+          if(lineYEnd > 240) {
+            lineYEnd = 240;
+          }
+    
+          if(devicesHistory->history[foundDeviceIndex].signalLevelsIndex == i) {
+            tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_WHITE);
+          } else if(lineHeight >= 11) {
+            tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_GREEN);
+          } else if(lineHeight >= 7) {
+            tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_YELLOW);
+          } else if(lineHeight >= 3) {
+            tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_ORANGE);
+          } else {
+            tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_RED);
+          }
+       }
+    }
+    
+    xSemaphoreGive(devicesHistory->xDevicesSemaphore);
   }
 }
