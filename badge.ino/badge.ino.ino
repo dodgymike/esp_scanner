@@ -57,20 +57,6 @@ class ButtonState {
   
     bool leftSelect;
   
-    int upA;
-    int downA;
-    int leftA;
-    int rightA;
-  
-    int leftSelectA;
-  
-    int upCounter;
-    int downCounter;
-    int leftCounter;
-    int rightCounter;
-  
-    int leftSelectCounter;
-  
     SemaphoreHandle_t xButtonSemaphore;
 
     bool upPressed() {
@@ -108,7 +94,7 @@ class ButtonState {
     }
 
   ButtonState()
-    : up(false), down(false), left(false), right(false), leftSelect(false), upA(0), downA(0), leftA(0), rightA(0), leftSelectA(0), upCounter(0), downCounter(0), leftCounter(0), rightCounter(0), leftSelectCounter(0), xButtonSemaphore(xSemaphoreCreateMutex())
+    : up(false), down(false), left(false), right(false), xButtonSemaphore(xSemaphoreCreateMutex())
     {
       xSemaphoreGive(xButtonSemaphore);
     }
@@ -226,20 +212,71 @@ void bluetoothTask(void* parameter) {
   }
 }
 
+#define BUTTON_GPIO_UP    (14)
+#define BUTTON_GPIO_DOWN  (33)
 
 void buttonTask(void* parameter) {
   ButtonState* buttonState = (ButtonState*)parameter;
+
+//  digitalWrite(2, LOW);  // B
+//  digitalWrite(4, LOW);
+//  digitalWrite(12, LOW); // LEFT SELECT
+//  digitalWrite(13, LOW); // RIGHT SELECT (NOT WORKING)
+  digitalWrite(BUTTON_GPIO_UP, LOW); // UP
+//  digitalWrite(15, LOW); // A
+//  digitalWrite(27, LOW); // RIGHT
+//  digitalWrite(32, LOW); // LEFT
+  digitalWrite(BUTTON_GPIO_DOWN, LOW); // DOWN
+
+//  pinMode(2, INPUT);  // B
+//  pinMode(4, INPUT);
+//  pinMode(12, INPUT); // LEFT SELECT
+//  pinMode(13, INPUT);
+  pinMode(BUTTON_GPIO_UP, INPUT); // UP
+//  pinMode(15, INPUT); // A
+//  pinMode(27, INPUT); // RIGHT
+//  pinMode(32, INPUT);
+  pinMode(BUTTON_GPIO_DOWN, INPUT); // DOWN
+
+//  pinMode(19, OUTPUT);
+//  pinMode(22, OUTPUT);
+//  
+//  digitalWrite(19, HIGH);
+//  digitalWrite(22, HIGH);
+
+  unsigned long startMillis = millis();
+  int upA   = 0;
+  int upC   = 0;
+  int downA = 0;
+  int downC = 0;
+  
+  while(millis() - startMillis < 1500) {
+    int cUp         = readAnalogSensorRaw(BUTTON_GPIO_UP);   // UP
+    int cDown       = readAnalogSensorRaw(BUTTON_GPIO_DOWN); // DOWN  
+
+    upA += cUp;
+    upC++;
+    
+    downA += cDown;
+    downC++;
+
+    delay(50);
+  }
+
+  int upInitial   = (upA / upC) - 4; //(upA / upC) / 2; //-10
+  int downInitial = (downA / downC) - 4; //(downA / downC) / 2; //-10
 
   while(true) {
 //    int b1          = readAnalogSensorRaw(2);  // B
 //    int b2          = readAnalogSensorRaw(4);
 //    int cLeftSelect = readAnalogSensorRaw(12); // LEFT SELECT
 //    int b4          = readAnalogSensorRaw(13);
-    int cUp         = readAnalogSensorRaw(14); // UP
+    int cUp         = readAnalogSensorRaw(BUTTON_GPIO_UP);   // UP
 //    int b6          = readAnalogSensorRaw(15); // A
 //    int cRight      = readAnalogSensorRaw(27); // RIGHT
 //    int cLeft       = readAnalogSensorRaw(32); // LEFT
-    int cDown       = readAnalogSensorRaw(33); // DOWN  
+    int cDown       = readAnalogSensorRaw(BUTTON_GPIO_DOWN); // DOWN  
+
 
     if ( xSemaphoreTake( buttonState->xButtonSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {
 //      buttonState->upA         += cUp;
@@ -289,8 +326,8 @@ void buttonTask(void* parameter) {
       buttonState->down = (buttonState->downCounter >= 2);
 */
 
-      buttonState->up = (cUp < 19);
-      buttonState->down = (cDown < 19);
+      buttonState->up = (cUp < upInitial);
+      buttonState->down = (cDown < downInitial);
 
 /*
       Serial.println("===================");
@@ -341,31 +378,6 @@ void setup()
   devicesHistory = new DevicesHistory();
   deviceOffset = 0;
 
-//  digitalWrite(2, LOW);  // B
-//  digitalWrite(4, LOW);
-//  digitalWrite(12, LOW); // LEFT SELECT
-//  digitalWrite(13, LOW); // RIGHT SELECT (NOT WORKING)
-  digitalWrite(14, LOW); // UP
-//  digitalWrite(15, LOW); // A
-//  digitalWrite(27, LOW); // RIGHT
-//  digitalWrite(32, LOW); // LEFT
-  digitalWrite(33, LOW); // DOWN
-
-//  pinMode(2, INPUT);  // B
-//  pinMode(4, INPUT);
-//  pinMode(12, INPUT); // LEFT SELECT
-//  pinMode(13, INPUT);
-  pinMode(14, INPUT); // UP
-//  pinMode(15, INPUT); // A
-//  pinMode(27, INPUT); // RIGHT
-//  pinMode(32, INPUT);
-  pinMode(33, INPUT); // DOWN
-
-//  pinMode(19, OUTPUT);
-//  pinMode(22, OUTPUT);
-//  
-//  digitalWrite(19, HIGH);
-//  digitalWrite(22, HIGH);
 
   Serial.println("Starting buttonTask");
 /*
