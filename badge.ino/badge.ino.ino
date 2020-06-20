@@ -432,18 +432,16 @@ void loop()
 
   previousTime = currentTime;
   
-//  Serial.println("CHECKING BUTTONS");
   if(buttonState->upPressed()) {
     deviceOffset--;
     tft.fillScreen(TFT_BLACK);
   } else if(buttonState->downPressed()) {
-    tft.fillScreen(TFT_BLACK);
     deviceOffset++;
+    tft.fillScreen(TFT_BLACK);
   }
   
   //tft.fillScreen(TFT_BLACK);
 
-//    Serial.println("CHECKING SCREEN");
   if(deviceOffset < 0) {
     deviceOffset = devicesHistory->getCount() - 1;
   } else if(deviceOffset >= devicesHistory->getCount()) {
@@ -466,57 +464,57 @@ void loop()
     displayDeviceEndIndex = devicesHistory->getCount();
   }
   
-    for(int foundDeviceIndex = displayDeviceStartIndex; foundDeviceIndex < displayDeviceEndIndex; foundDeviceIndex++) {
-      if ( xSemaphoreTake( devicesHistory->xDevicesSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {
-        int y = GRAPH_HEIGHT + (GRAPH_HEIGHT * (foundDeviceIndex - displayDeviceStartIndex));
-        tft.setCursor(GRAPH_HEIGHT, y);
-        tft.println(devicesHistory->history[foundDeviceIndex].name);
-    
-        if(deviceOffset == foundDeviceIndex) {
-          tft.fillCircle(GRAPH_HEIGHT / 2, y, 3, TFT_WHITE);
-        } else {
-          tft.fillCircle(GRAPH_HEIGHT / 2, y, 3, TFT_BLACK);
+  for(int foundDeviceIndex = displayDeviceStartIndex; foundDeviceIndex < displayDeviceEndIndex; foundDeviceIndex++) {
+    if ( xSemaphoreTake( devicesHistory->xDevicesSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {
+      int y = GRAPH_HEIGHT + (GRAPH_HEIGHT * (foundDeviceIndex - displayDeviceStartIndex));
+      tft.setCursor(GRAPH_HEIGHT, y);
+      tft.println(devicesHistory->history[foundDeviceIndex].name);
+      
+      if(deviceOffset == foundDeviceIndex) {
+        tft.fillCircle(GRAPH_HEIGHT / 2, y, 3, TFT_WHITE);
+      } else {
+        tft.fillCircle(GRAPH_HEIGHT / 2, y, 3, TFT_BLACK);
+      }
+      
+      for(int i = 0; i < DEVICE_HISTORY_SIZE; i++) {
+        int lineHeight = (GRAPH_HEIGHT * ((devicesHistory->history[foundDeviceIndex].signalLevels[i] + 100.0f)/100.0f));
+        int lineX = 240 - DEVICE_HISTORY_SIZE + i;
+        if(lineX > 240) {
+          lineX = 240;
         }
-    
-        for(int i = 0; i < DEVICE_HISTORY_SIZE; i++) {
-          int lineHeight = (GRAPH_HEIGHT * ((devicesHistory->history[foundDeviceIndex].signalLevels[i] + 100.0f)/100.0f));
-          int lineX = 240 - DEVICE_HISTORY_SIZE + i;
-          if(lineX > 240) {
-            lineX = 240;
-          }
-    
-          tft.drawLine(lineX, y, lineX, y + GRAPH_HEIGHT, TFT_BLACK);
-          
-          int lineYStart = y + (GRAPH_HEIGHT / 4) + 2;          
-          if(devicesHistory->history[foundDeviceIndex].signalLevelsIndex == i) {
-            lineYStart += 3;
-          } else {
-            tft.drawLine(lineX, lineYStart + 1, lineX, lineYStart + 3, TFT_BLACK);
-          }
-          if(lineYStart > 240) {
-            lineYStart = 240;
-          }
-    
-          int lineYEnd = y - lineHeight + (GRAPH_HEIGHT / 4) + 2;
-          if(devicesHistory->history[foundDeviceIndex].signalLevelsIndex == i) {
-            lineYEnd += 3;
-          }
-          if(lineYEnd > 240) {
-            lineYEnd = 240;
-          }
-    
-          if(devicesHistory->history[foundDeviceIndex].signalLevelsIndex == i) {
-            tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_WHITE);
-          } else if(lineHeight >= 11) {
-            tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_GREEN);
-          } else if(lineHeight >= 7) {
-            tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_YELLOW);
-          } else if(lineHeight >= 3) {
-            tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_ORANGE);
-          } else {
-            tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_RED);
-          }
-       }
+        
+        tft.drawLine(lineX, y, lineX, y + GRAPH_HEIGHT, TFT_BLACK);
+        
+        int lineYStart = y + (GRAPH_HEIGHT / 4) + 2;          
+        if(devicesHistory->history[foundDeviceIndex].signalLevelsIndex == i) {
+          lineYStart += 3;
+        } else {
+          tft.drawLine(lineX, lineYStart + 1, lineX, lineYStart + 3, TFT_BLACK);
+        }
+        if(lineYStart > 240) {
+          lineYStart = 240;
+        }
+        
+        int lineYEnd = y - lineHeight + (GRAPH_HEIGHT / 4) + 2;
+        if(devicesHistory->history[foundDeviceIndex].signalLevelsIndex == i) {
+          lineYEnd += 3;
+        }
+        if(lineYEnd > 240) {
+          lineYEnd = 240;
+        }
+        
+        if(devicesHistory->history[foundDeviceIndex].signalLevelsIndex == i) {
+          tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_WHITE);
+        } else if(lineHeight >= 11) {
+          tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_GREEN);
+        } else if(lineHeight >= 7) {
+          tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_YELLOW);
+        } else if(lineHeight >= 3) {
+          tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_ORANGE);
+        } else {
+          tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_RED);
+        }
+      }
       xSemaphoreGive(devicesHistory->xDevicesSemaphore);
     }  
   }
