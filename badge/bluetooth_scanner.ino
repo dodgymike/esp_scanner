@@ -263,8 +263,8 @@ void buttonTask(void* parameter) {
     delay(50);
   }
 
-  int upInitial   = (upA / upC) - 4; //(upA / upC) / 2; //-10
-  int downInitial = (downA / downC) - 4; //(downA / downC) / 2; //-10
+  int upInitial   = (upA / upC); //(upA / upC) / 2; //-10
+  int downInitial = (downA / downC); //(downA / downC) / 2; //-10
 
   while(true) {
 //    int b1          = readAnalogSensorRaw(2);  // B
