@@ -2,141 +2,22 @@
 #include <stdlib.h>
 #include <math.h>
 
-#include <BLEDevice.h>
-#include <BLEUtils.h>
-#include <BLEScan.h>
-#include <BLEAdvertisedDevice.h>
 
 #include <math.h>
 
 #include "button_task.h"
 #include "button_state.h"
+#include "bluetooth_task.h"
+#include "devices_history.h"
 
 #include <TFT_eSPI.h>
 
 #define BaudRate 115200
 
-TFT_eSPI tft = TFT_eSPI();       // Invoke custom library
-
 #define SCAN_NAME_SIZE (20)
 #define GRAPH_HEIGHT (20.0f)
 
-#define DEVICE_ADDRESS_SIZE (50)
-#define DEVICE_HISTORY_SIZE (80)
-
-
-class DeviceHistory {
-  public:
-    char name[DEVICE_ADDRESS_SIZE];
-    int signalLevels[DEVICE_HISTORY_SIZE];
-    int signalLevelsIndex;
-
-    DeviceHistory()
-      : name(""), signalLevelsIndex(0)
-    {}
-
-    bool checkName(const char* nameToCheck) {
-      return (strncmp(name, nameToCheck, DEVICE_ADDRESS_SIZE) == 0);
-    }
-};
-
-class DevicesHistory {
-  private:
-    int count;
-    SemaphoreHandle_t xCountSemaphore;
-      
-  public:
-    int getCount() {
-      int rv = 0;
-      
-      if (xSemaphoreTake(xCountSemaphore, ( TickType_t ) 5 ) == pdTRUE) {  
-        rv = count;
-        xSemaphoreGive(xCountSemaphore);
-      }      
-
-      return rv;
-    }
-
-    void incrementCount() {
-      if (xSemaphoreTake(xCountSemaphore, ( TickType_t ) 5 ) == pdTRUE) {  
-        count++;
-        xSemaphoreGive(xCountSemaphore);
-      }      
-    }
-
-    DeviceHistory history[100];
-    
-    SemaphoreHandle_t xDevicesSemaphore;
-
-    DevicesHistory()
-      : count(0), xDevicesSemaphore(xSemaphoreCreateMutex()),  xCountSemaphore(xSemaphoreCreateMutex())
-    {
-      xSemaphoreGive(xDevicesSemaphore);
-      xSemaphoreGive(xCountSemaphore);
-    }
-};
-
-void bluetoothTask(void* parameter) {
-  DevicesHistory* devicesHistory = (DevicesHistory*)parameter;
-  
-  int scanTime = 1; //In seconds
-  int scanIndex = 0;
-  
-  BLEDevice::init("");
-  BLEScan* pBLEScan = BLEDevice::getScan(); //create new scan
-  //pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
-  pBLEScan->setActiveScan(true); //active scan uses more power, but get results faster
-  pBLEScan->setInterval(100);
-  pBLEScan->setWindow(99);  // less or equal setInterval value
-
-  while(true) {
-    BLEScanResults foundDevices = pBLEScan->start(scanTime, false);
-
-    if ( xSemaphoreTake( devicesHistory->xDevicesSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {
-      for(int i = 0; i < foundDevices.getCount(); i++) {
-          BLEAdvertisedDevice foundDevice = foundDevices.getDevice(i);
-      
-          char deviceAddress[200];
-          bzero(deviceAddress, 200);
-          foundDevice.getAddress().toString().copy(deviceAddress, 180);
-          
-          int foundDeviceIndex = -1;
-          for(int deviceIndex = 0; deviceIndex < devicesHistory->getCount(); deviceIndex++) {
-             if(devicesHistory->history[deviceIndex].checkName(deviceAddress)) {
-                  foundDeviceIndex = deviceIndex;
-                  break;
-             }
-          }
-          
-          if(foundDeviceIndex == -1) {
-            devicesHistory->incrementCount();
-            foundDeviceIndex = devicesHistory->getCount() - 1;
-      
-            strncpy(devicesHistory->history[foundDeviceIndex].name, deviceAddress, (DEVICE_ADDRESS_SIZE - 1));
-            devicesHistory->history[foundDeviceIndex].name[(DEVICE_ADDRESS_SIZE - 1)] = 0;
-            
-            devicesHistory->history[foundDeviceIndex].signalLevelsIndex = 0;
-            for(int i = 0; i < DEVICE_HISTORY_SIZE; i++) {
-              devicesHistory->history[foundDeviceIndex].signalLevels[i] = -100;
-            }
-          }
-          
-          devicesHistory->history[foundDeviceIndex].signalLevels[devicesHistory->history[foundDeviceIndex].signalLevelsIndex] = foundDevice.getRSSI();
-          devicesHistory->history[foundDeviceIndex].signalLevelsIndex++;
-          if(devicesHistory->history[foundDeviceIndex].signalLevelsIndex >= DEVICE_HISTORY_SIZE) {
-            devicesHistory->history[foundDeviceIndex].signalLevelsIndex = 0;
-          }
-      }
-      
-      xSemaphoreGive( devicesHistory->xDevicesSemaphore );
-    }
-         
-    pBLEScan->clearResults();   // delete results fromBLEScan buffer to release memory
-    delay(100);
-  }
-}
-
-
+TFT_eSPI tft = TFT_eSPI();       // Invoke custom library
 
 int deviceOffset;
 ButtonState* buttonState = NULL;

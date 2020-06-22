@@ -1,5 +1,5 @@
-#ifndef _BUTTON_STATE_H
-#define _BUTTON_STATE_H
+#ifndef _BUTTON_STATE_H_
+#define _BUTTON_STATE_H_
 
 #include <Arduino.h>
 
