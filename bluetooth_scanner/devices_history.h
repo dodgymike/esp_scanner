@@ -7,12 +7,21 @@
 #define DEVICE_HISTORY_SIZE (80)
 
 class DeviceHistory {
+    int signalLevels[2][DEVICE_HISTORY_SIZE];
+    int signalLevelsIndex;
+    int signalLevelBufferIndex;
   public:
     char name[DEVICE_ADDRESS_SIZE];
-    int signalLevels[DEVICE_HISTORY_SIZE];
-    int signalLevelsIndex;
+
+    int getSignalLevelsIndex();
+    int* getSignalLevels();
+    void setSignalLevelBuffer();
+    void setSignalLevel(int signalLevel);
+    void setSignalLevelBuffer(int signalLevelBufferIndexIn);
 
     DeviceHistory();
+
+    void setName(const char* name);
     bool checkName(const char* nameToCheck);
 };
 

@@ -25,7 +25,7 @@ void bluetoothTask(void* parameter) {
     if ( xSemaphoreTake( devicesHistory->xDevicesSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {
       for(int i = 0; i < foundDevices.getCount(); i++) {
           BLEAdvertisedDevice foundDevice = foundDevices.getDevice(i);
-      
+
           char deviceAddress[200];
           bzero(deviceAddress, 200);
           foundDevice.getAddress().toString().copy(deviceAddress, 180);
@@ -41,21 +41,11 @@ void bluetoothTask(void* parameter) {
           if(foundDeviceIndex == -1) {
             devicesHistory->incrementCount();
             foundDeviceIndex = devicesHistory->getCount() - 1;
-      
-            strncpy(devicesHistory->history[foundDeviceIndex].name, deviceAddress, (DEVICE_ADDRESS_SIZE - 1));
-            devicesHistory->history[foundDeviceIndex].name[(DEVICE_ADDRESS_SIZE - 1)] = 0;
-            
-            devicesHistory->history[foundDeviceIndex].signalLevelsIndex = 0;
-            for(int i = 0; i < DEVICE_HISTORY_SIZE; i++) {
-              devicesHistory->history[foundDeviceIndex].signalLevels[i] = -100;
-            }
+
+            devicesHistory->history[foundDeviceIndex].setName(deviceAddress);
           }
           
-          devicesHistory->history[foundDeviceIndex].signalLevels[devicesHistory->history[foundDeviceIndex].signalLevelsIndex] = foundDevice.getRSSI();
-          devicesHistory->history[foundDeviceIndex].signalLevelsIndex++;
-          if(devicesHistory->history[foundDeviceIndex].signalLevelsIndex >= DEVICE_HISTORY_SIZE) {
-            devicesHistory->history[foundDeviceIndex].signalLevelsIndex = 0;
-          }
+          devicesHistory->history[foundDeviceIndex].setSignalLevel(foundDevice.getRSSI());
       }
       
       xSemaphoreGive( devicesHistory->xDevicesSemaphore );
