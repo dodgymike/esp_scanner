@@ -95,6 +95,13 @@ void loop()
     if(buttonState->pressed(ButtonState::left)) {
       mode = MODE_SHOW_DEVICES;
       tft.fillScreen(TFT_BLACK);
+    } else if(buttonState->pressed(ButtonState::right)) {
+      if ( xSemaphoreTake(devicesHistory->xDevicesSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {
+        devicesHistory->history[displayDeviceOffset].switchBuffer();
+        tft.fillScreen(TFT_BLACK);
+
+        xSemaphoreGive(devicesHistory->xDevicesSemaphore);
+      }
     }
   }
 
@@ -106,7 +113,69 @@ void loop()
 }
 
 void showDevice(DevicesHistory* devicesHistory, int displayDeviceOffset) {
-  
+  for(int bufferIndex = 0; bufferIndex < DEVICE_HISTORY_BUFFERS; bufferIndex++) {
+    drawDeviceHistory(GRAPH_HEIGHT + (GRAPH_HEIGHT * bufferIndex), (devicesHistory->history[displayDeviceOffset].getSignalLevelBufferIndex() == bufferIndex), &(devicesHistory->history[displayDeviceOffset]), bufferIndex, devicesHistory->xDevicesSemaphore);
+  }
+}
+
+void drawDeviceHistory(int y, bool isSelectedDevice, DeviceHistory* deviceHistory, SemaphoreHandle_t xSemaphore) {
+   drawDeviceHistory(y, isSelectedDevice, deviceHistory, deviceHistory->getSignalLevelBufferIndex(), xSemaphore);
+}
+
+void drawDeviceHistory(int y, bool isSelectedDevice, DeviceHistory* deviceHistory, int bufferIndex, SemaphoreHandle_t xSemaphore) {
+  if ( xSemaphoreTake(xSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {
+    tft.setCursor(GRAPH_HEIGHT, y);
+    tft.println(deviceHistory->name);
+    
+    if(isSelectedDevice) {
+      tft.fillCircle(GRAPH_HEIGHT / 2, y, 3, TFT_WHITE);
+    } else {
+      tft.fillCircle(GRAPH_HEIGHT / 2, y, 3, TFT_BLACK);
+    }
+    
+    for(int i = 0; i < DEVICE_HISTORY_SIZE; i++) {
+      int lineHeight = (GRAPH_HEIGHT * ((deviceHistory->getSignalLevels(bufferIndex)[i] + 100.0f)/100.0f));
+      int lineX = 240 - DEVICE_HISTORY_SIZE + i;
+      if(lineX > 240) {
+        lineX = 240;
+      }
+      
+      tft.drawLine(lineX, y, lineX, y + GRAPH_HEIGHT, TFT_BLACK);
+
+      int signalLevelsIndex = deviceHistory->getSignalLevelsIndex(bufferIndex);
+      
+      int lineYStart = y + (GRAPH_HEIGHT / 4) + 2;          
+      if(signalLevelsIndex == i) {
+        lineYStart += 3;
+      } else {
+        tft.drawLine(lineX, lineYStart + 1, lineX, lineYStart + 3, TFT_BLACK);
+      }
+      if(lineYStart > 240) {
+        lineYStart = 240;
+      }
+      
+      int lineYEnd = y - lineHeight + (GRAPH_HEIGHT / 4) + 2;
+      if(signalLevelsIndex == i) {
+        lineYEnd += 3;
+      }
+      if(lineYEnd > 240) {
+        lineYEnd = 240;
+      }
+      
+      if(signalLevelsIndex == i) {
+        tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_WHITE);
+      } else if(lineHeight >= 11) {
+        tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_GREEN);
+      } else if(lineHeight >= 7) {
+        tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_YELLOW);
+      } else if(lineHeight >= 3) {
+        tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_ORANGE);
+      } else {
+        tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_RED);
+      }
+    }
+    xSemaphoreGive(xSemaphore);
+  }  
 }
 
 void showDevices() {
@@ -133,59 +202,8 @@ void showDevices() {
   }
   
   for(int foundDeviceIndex = displayDeviceStartIndex; foundDeviceIndex < displayDeviceEndIndex; foundDeviceIndex++) {
-    if ( xSemaphoreTake( devicesHistory->xDevicesSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {
-      int y = GRAPH_HEIGHT + (GRAPH_HEIGHT * (foundDeviceIndex - displayDeviceStartIndex));
-      tft.setCursor(GRAPH_HEIGHT, y);
-      tft.println(devicesHistory->history[foundDeviceIndex].name);
-      
-      if(deviceOffset == foundDeviceIndex) {
-        tft.fillCircle(GRAPH_HEIGHT / 2, y, 3, TFT_WHITE);
-      } else {
-        tft.fillCircle(GRAPH_HEIGHT / 2, y, 3, TFT_BLACK);
-      }
-      
-      for(int i = 0; i < DEVICE_HISTORY_SIZE; i++) {
-        int lineHeight = (GRAPH_HEIGHT * ((devicesHistory->history[foundDeviceIndex].getSignalLevels()[i] + 100.0f)/100.0f));
-        int lineX = 240 - DEVICE_HISTORY_SIZE + i;
-        if(lineX > 240) {
-          lineX = 240;
-        }
-        
-        tft.drawLine(lineX, y, lineX, y + GRAPH_HEIGHT, TFT_BLACK);
+    int y = GRAPH_HEIGHT + (GRAPH_HEIGHT * (foundDeviceIndex - displayDeviceStartIndex));
 
-        int signalLevelsIndex = devicesHistory->history[foundDeviceIndex].getSignalLevelsIndex();
-        
-        int lineYStart = y + (GRAPH_HEIGHT / 4) + 2;          
-        if(signalLevelsIndex == i) {
-          lineYStart += 3;
-        } else {
-          tft.drawLine(lineX, lineYStart + 1, lineX, lineYStart + 3, TFT_BLACK);
-        }
-        if(lineYStart > 240) {
-          lineYStart = 240;
-        }
-        
-        int lineYEnd = y - lineHeight + (GRAPH_HEIGHT / 4) + 2;
-        if(signalLevelsIndex == i) {
-          lineYEnd += 3;
-        }
-        if(lineYEnd > 240) {
-          lineYEnd = 240;
-        }
-        
-        if(signalLevelsIndex == i) {
-          tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_WHITE);
-        } else if(lineHeight >= 11) {
-          tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_GREEN);
-        } else if(lineHeight >= 7) {
-          tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_YELLOW);
-        } else if(lineHeight >= 3) {
-          tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_ORANGE);
-        } else {
-          tft.drawLine(lineX, lineYStart, lineX, lineYEnd, TFT_RED);
-        }
-      }
-      xSemaphoreGive(devicesHistory->xDevicesSemaphore);
-    }  
+    drawDeviceHistory(y, (deviceOffset == foundDeviceIndex), &(devicesHistory->history[foundDeviceIndex]), devicesHistory->xDevicesSemaphore);
   }
 }

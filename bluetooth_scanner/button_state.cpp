@@ -2,7 +2,7 @@
 
 void ButtonState::set(int button, int value) {
   if ( xSemaphoreTake(xButtonSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {  
-    buttonStates[button] = (value < (buttonTops[button] - 1));
+    buttonStates[button] = (value < (buttonTops[button] - 5));
 
     xSemaphoreGive(xButtonSemaphore);
   }

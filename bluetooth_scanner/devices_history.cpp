@@ -1,12 +1,28 @@
 #include "devices_history.h"
 
 DeviceHistory::DeviceHistory()
-  : name(""), signalLevelsIndex(0), signalLevelBufferIndex(0)
+  : name(""), signalLevelBufferIndex(0)
 {
-  for(int i = 0; i < DEVICE_HISTORY_SIZE; i++) {
-    signalLevels[0][i] = -100;
-    signalLevels[1][i] = -100;
+  for(int bufferIndex = 0; bufferIndex < DEVICE_HISTORY_BUFFERS; bufferIndex++) {
+    for(int i = 0; i < DEVICE_HISTORY_SIZE; i++) {
+      signalLevels[bufferIndex][i] = -100;
+      signalLevelsIndex[bufferIndex] = 0;
+    }
   }
+}
+
+void DeviceHistory::switchBuffer() {
+  signalLevelBufferIndex++;
+  if(signalLevelBufferIndex >= DEVICE_HISTORY_BUFFERS) {
+    signalLevelBufferIndex = 0;
+  }
+
+/*
+*/
+  for(int i = 0; i < DEVICE_HISTORY_SIZE; i++) {
+    signalLevels[signalLevelBufferIndex][i] = -100;
+  }
+  signalLevelsIndex[signalLevelBufferIndex] = 0;
 }
 
 bool DeviceHistory::checkName(const char* nameToCheck) {
@@ -22,21 +38,29 @@ int* DeviceHistory::getSignalLevels() {
   return signalLevels[signalLevelBufferIndex];
 }
 
+int* DeviceHistory::getSignalLevels(int bufferIndex) {
+  return signalLevels[bufferIndex];
+}
+
 void DeviceHistory::setSignalLevel(int signalLevel) {
-  signalLevels[signalLevelBufferIndex][signalLevelsIndex] = signalLevel;
+  signalLevels[signalLevelBufferIndex][signalLevelsIndex[signalLevelBufferIndex]] = signalLevel;
   
-  signalLevelsIndex++;
-  if(signalLevelsIndex >= DEVICE_HISTORY_SIZE) {
-    signalLevelsIndex = 0;
+  signalLevelsIndex[signalLevelBufferIndex]++;
+  if(signalLevelsIndex[signalLevelBufferIndex] >= DEVICE_HISTORY_SIZE) {
+    signalLevelsIndex[signalLevelBufferIndex] = 0;
   }
 }
 
-void DeviceHistory::setSignalLevelBuffer(int signalLevelBufferIndexIn) {
-  signalLevelBufferIndex = signalLevelBufferIndexIn;
+int DeviceHistory::getSignalLevelsIndex() {
+  return signalLevelsIndex[signalLevelBufferIndex];
 }
 
-int DeviceHistory::getSignalLevelsIndex() {
-  return signalLevelsIndex;
+int DeviceHistory::getSignalLevelsIndex(int bufferIndex) {
+  return signalLevelsIndex[bufferIndex];
+}
+
+int DeviceHistory::getSignalLevelBufferIndex() {
+  return signalLevelBufferIndex;
 }
 
 int DevicesHistory::getCount() {
@@ -58,7 +82,7 @@ void DevicesHistory::incrementCount() {
 }
 
 DevicesHistory::DevicesHistory()
-  : count(0), xDevicesSemaphore(xSemaphoreCreateMutex()),  xCountSemaphore(xSemaphoreCreateMutex())
+  : count(0), xDevicesSemaphore(xSemaphoreCreateMutex()), xCountSemaphore(xSemaphoreCreateMutex())
 {
   xSemaphoreGive(xDevicesSemaphore);
   xSemaphoreGive(xCountSemaphore);
