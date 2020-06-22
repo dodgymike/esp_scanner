@@ -2,38 +2,12 @@
 #include <stdlib.h>
 #include <math.h>
 
-//#include "game.hpp"
-
 #include <BLEDevice.h>
 #include <BLEUtils.h>
 #include <BLEScan.h>
 #include <BLEAdvertisedDevice.h>
 
 #include <math.h>
-
-//#include "bt.hpp"
-
-//#include <Adafruit_I2CDevice.h>
-//  
-//#include <Adafruit_GFX.h>    // Core graphics library
-//#include <Adafruit_ST7789.h> // Hardware-specific library for ST7789
-//#include <SPI.h>             // Arduino SPI library
-  
-// ST7789 TFT module connections
-//#define TFT_CS    10  // define chip select pin
-//#define TFT_DC     16  // define data/command pin
-//#define TFT_RST    21  // define reset pin, or set to -1 and connect to Arduino RESET pin
-//#define TFT_MISO 19
-//#define TFT_MOSI 23
-//#define TFT_SCLK 18
-
-// 21 #define TFT_MISO 19
-// 22 #define TFT_MOSI 23
-// 23 #define TFT_SCLK 18
-// 24 //#define TFT_CS    -1 // Not connected
-// 25 //#define TFT_DC    2
-// 26 #define TFT_DC    16
-// 27 #define TFT_RST   21  // Connect reset to ensure display initialises
 
 #include <TFT_eSPI.h>
 
@@ -47,27 +21,42 @@ TFT_eSPI tft = TFT_eSPI();       // Invoke custom library
 #define DEVICE_ADDRESS_SIZE (50)
 #define DEVICE_HISTORY_SIZE (80)
 
-
 class ButtonState {
+  private:
+    bool buttonStates[6];
+    int  buttonTops[6];
+    
   public:
-    bool up;
-    bool down;
-    bool left;
-    bool right;
-  
-    bool leftSelect;
+    static const int up    = 0;
+    static const int down  = 1;
+    static const int right = 2;
+    static const int left  = 3;
   
     SemaphoreHandle_t xButtonSemaphore;
 
-    bool upPressed() {
+    void set(int button, int value) {
+      if ( xSemaphoreTake(xButtonSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {  
+        buttonStates[button] = (value <= buttonTops[button]);
+
+        xSemaphoreGive(xButtonSemaphore);
+      }
+    }
+
+    void setTop(int button, int value) {
+      if ( xSemaphoreTake(xButtonSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {  
+        buttonTops[button] = value;
+        
+        xSemaphoreGive(xButtonSemaphore);
+      }
+    }
+
+    bool pressed(int button) {
       bool rv = false;
 
       if ( xSemaphoreTake(xButtonSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {  
-        if(up) {
-//         upA = 200;
-          
+        if(buttonStates[button]) {
           rv = true;
-          up = false;
+          buttonStates[button] = false;
         }
 
         xSemaphoreGive(xButtonSemaphore);
@@ -76,32 +65,19 @@ class ButtonState {
       return rv;
     }
 
-    bool downPressed() {
-      bool rv = false;
-
-      if ( xSemaphoreTake(xButtonSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {  
-        if(down) {
-//          downA = 200;
-          
-          rv = true;
-          down = false;
-        }
-
-        xSemaphoreGive(xButtonSemaphore);
-      }
-
-      return rv;
-    }
-
-  ButtonState()
-    : up(false), down(false), left(false), right(false), xButtonSemaphore(xSemaphoreCreateMutex())
+    ButtonState()
+      : xButtonSemaphore(xSemaphoreCreateMutex())
     {
+      for(int i = 0; i < 6; i++) {
+        buttonStates[i] = false;
+        buttonTops[i] = 0;
+      }
+  
       xSemaphoreGive(xButtonSemaphore);
     }
 };
 
 class DeviceHistory {
-//  private:
   public:
     char name[DEVICE_ADDRESS_SIZE];
     int signalLevels[DEVICE_HISTORY_SIZE];
@@ -125,7 +101,7 @@ class DevicesHistory {
     int getCount() {
       int rv = 0;
       
-      if ( xSemaphoreTake(xCountSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {  
+      if (xSemaphoreTake(xCountSemaphore, ( TickType_t ) 5 ) == pdTRUE) {  
         rv = count;
         xSemaphoreGive(xCountSemaphore);
       }      
@@ -134,7 +110,7 @@ class DevicesHistory {
     }
 
     void incrementCount() {
-      if ( xSemaphoreTake(xCountSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {  
+      if (xSemaphoreTake(xCountSemaphore, ( TickType_t ) 5 ) == pdTRUE) {  
         count++;
         xSemaphoreGive(xCountSemaphore);
       }      
@@ -212,146 +188,60 @@ void bluetoothTask(void* parameter) {
   }
 }
 
-#define BUTTON_GPIO_UP    (14)
-#define BUTTON_GPIO_DOWN  (33)
+#define BUTTON_GPIO_UP          (14)
+#define BUTTON_GPIO_DOWN        (33)
+#define BUTTON_GPIO_LEFT        (32)
+#define BUTTON_GPIO_RIGHT       (27)
+#define BUTTON_GPIO_B           (2)
+#define BUTTON_GPIO_LEFT_SELECT (12)
+#define BUTTON_GPIO_A           (15)
 
 void buttonTask(void* parameter) {
   ButtonState* buttonState = (ButtonState*)parameter;
 
-//  digitalWrite(2, LOW);  // B
-//  digitalWrite(4, LOW);
-//  digitalWrite(12, LOW); // LEFT SELECT
-//  digitalWrite(13, LOW); // RIGHT SELECT (NOT WORKING)
-  digitalWrite(BUTTON_GPIO_UP, LOW); // UP
-//  digitalWrite(15, LOW); // A
-//  digitalWrite(27, LOW); // RIGHT
-//  digitalWrite(32, LOW); // LEFT
+  digitalWrite(BUTTON_GPIO_UP,   LOW); // UP
   digitalWrite(BUTTON_GPIO_DOWN, LOW); // DOWN
+  digitalWrite(BUTTON_GPIO_RIGHT,     LOW); // RIGHT
+  digitalWrite(BUTTON_GPIO_LEFT,      LOW); // LEFT
 
-//  pinMode(2, INPUT);  // B
-//  pinMode(4, INPUT);
-//  pinMode(12, INPUT); // LEFT SELECT
-//  pinMode(13, INPUT);
-  pinMode(BUTTON_GPIO_UP, INPUT); // UP
-//  pinMode(15, INPUT); // A
-//  pinMode(27, INPUT); // RIGHT
-//  pinMode(32, INPUT);
-  pinMode(BUTTON_GPIO_DOWN, INPUT); // DOWN
-
-//  pinMode(19, OUTPUT);
-//  pinMode(22, OUTPUT);
-//  
-//  digitalWrite(19, HIGH);
-//  digitalWrite(22, HIGH);
+  pinMode(BUTTON_GPIO_UP,    INPUT); // UP
+  pinMode(BUTTON_GPIO_DOWN,  INPUT); // DOWN
+  pinMode(BUTTON_GPIO_RIGHT, INPUT); // UP
+  pinMode(BUTTON_GPIO_LEFT,  INPUT); // DOWN
 
   unsigned long startMillis = millis();
-  int upA   = 0;
-  int upC   = 0;
-  int downA = 0;
-  int downC = 0;
-  
-  while(millis() - startMillis < 1500) {
-    int cUp         = readAnalogSensorRaw(BUTTON_GPIO_UP);   // UP
-    int cDown       = readAnalogSensorRaw(BUTTON_GPIO_DOWN); // DOWN  
 
-    upA += cUp;
-    upC++;
-    
-    downA += cDown;
-    downC++;
+  int upA    = 0;
+  int downA  = 0;
+  int leftA  = 0;
+  int rightA = 0;
+  int checkCount = 0;
+
+  Serial.println("Getting Top");
+  while(millis() - startMillis < 1500) {
+    upA    += touchRead(BUTTON_GPIO_UP);
+    downA  += touchRead(BUTTON_GPIO_DOWN);
+    leftA  += touchRead(BUTTON_GPIO_LEFT);
+    rightA += touchRead(BUTTON_GPIO_RIGHT);
+    checkCount++;
 
     delay(50);
   }
 
-  int upInitial   = (upA / upC); //(upA / upC) / 2; //-10
-  int downInitial = (downA / downC); //(downA / downC) / 2; //-10
+  Serial.println("Setting Top");
+  buttonState->setTop(ButtonState::up,    upA    / checkCount);
+  buttonState->setTop(ButtonState::down,  downA  / checkCount);
+  buttonState->setTop(ButtonState::left,  leftA  / checkCount);
+  buttonState->setTop(ButtonState::right, rightA / checkCount);
 
+  Serial.println("Handling buttons");
   while(true) {
-//    int b1          = readAnalogSensorRaw(2);  // B
-//    int b2          = readAnalogSensorRaw(4);
-//    int cLeftSelect = readAnalogSensorRaw(12); // LEFT SELECT
-//    int b4          = readAnalogSensorRaw(13);
-    int cUp         = readAnalogSensorRaw(BUTTON_GPIO_UP);   // UP
-//    int b6          = readAnalogSensorRaw(15); // A
-//    int cRight      = readAnalogSensorRaw(27); // RIGHT
-//    int cLeft       = readAnalogSensorRaw(32); // LEFT
-    int cDown       = readAnalogSensorRaw(BUTTON_GPIO_DOWN); // DOWN  
-
-
-    if ( xSemaphoreTake( buttonState->xButtonSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {
-//      buttonState->upA         += cUp;
-//      buttonState->downA       += cDown;
-//      buttonState->leftA       += cLeft;
-//      buttonState->rightA      += cRight;
-//      buttonState->leftSelectA += cLeftSelect;
-      
-//      buttonState->upCounter         += 1;
-//      buttonState->downCounter       += 1;
-//      buttonState->leftCounter       += 1;
-//      buttonState->rightCounter      += 1;
-//      buttonState->leftSelectCounter += 1;
-
-//      int upSelector         = buttonState->upA         / buttonState->upCounter;
-//      int downSelector       = buttonState->downA       / buttonState->downCounter;
-//      int leftSelector       = buttonState->leftA       / buttonState->leftCounter;
-//      int rightSelector      = buttonState->rightA      / buttonState->rightCounter;
-//      int leftSelectSelector = buttonState->leftSelectA / buttonState->leftSelectCounter;
-
-//      int upSelector         = buttonState->upA         / 5;
-//      int downSelector       = buttonState->downA       / 5;
-//      int leftSelector       = buttonState->leftA       / 5;
-//      int rightSelector      = buttonState->rightA      / 5;
-//      int leftSelectSelector = buttonState->leftSelectA / 5;
-
-/*
-      if(cUp < 10) {
-        buttonState->upCounter++;
-      } else {
-        buttonState->upCounter /= 2;
-      }
-      if(buttonState->upCounter >= 10) {
-        buttonState->upCounter = 10;
-      }
-      
-      if(cDown < 10) {
-        buttonState->downCounter++;
-      } else {
-        buttonState->downCounter /= 2;
-      }
-      if(buttonState->downCounter >= 10) {
-        buttonState->downCounter = 10;
-      }
-
-      buttonState->up = (buttonState->upCounter >= 2);
-      buttonState->down = (buttonState->downCounter >= 2);
-*/
-
-      buttonState->up = (cUp < upInitial);
-      buttonState->down = (cDown < downInitial);
-
-/*
-      Serial.println("===================");
-//      Serial.println(buttonState->upA);
-//      Serial.println(buttonState->upCounter);
-      Serial.println(upSelector);
-      Serial.println(buttonState->up);  
-      Serial.println(cUp);  
-      Serial.println("===");
-      Serial.println(downSelector);
-      Serial.println(buttonState->down);  
-      Serial.println(cDown);  
-*/
-
-/*
-      buttonState->upA         *= 2.0f;
-      buttonState->downA       *= 2.0f;
-      buttonState->leftA       *= 2.0f;
-      buttonState->rightA      *= 2.0f;
-      buttonState->leftSelectA *= 2.0f;
-*/
-
-      xSemaphoreGive( buttonState->xButtonSemaphore );
-    }
+    Serial.println("BOOP");
+    
+    buttonState->set(ButtonState::up,    touchRead(BUTTON_GPIO_UP));
+    buttonState->set(ButtonState::down,  touchRead(BUTTON_GPIO_DOWN));
+    buttonState->set(ButtonState::left,  touchRead(BUTTON_GPIO_LEFT));
+    buttonState->set(ButtonState::right, touchRead(BUTTON_GPIO_RIGHT));
 
     delay(50);
   }
@@ -380,8 +270,6 @@ void setup()
 
 
   Serial.println("Starting buttonTask");
-/*
-*/  
   xTaskCreate(
     buttonTask,       /* Task function. */
     "buttonTask",     /* String with name of task. */
@@ -390,6 +278,7 @@ void setup()
     2,                 /* Priority of the task. */
     NULL);             /* Task handle. */
 
+  Serial.println("Starting bluetoothTask");
   xTaskCreate(
     bluetoothTask,       /* Task function. */
     "bluetoothTask",     /* String with name of task. */
@@ -397,40 +286,6 @@ void setup()
     (void*)devicesHistory,              /* Parameter passed as input of the task */
     2,                 /* Priority of the task. */
     NULL);             /* Task handle. */
-}
-
-#define minimum(a,b) (((a) < (b)) ? (a) : (b))
-
-static int TOUCH_SENSE = 10;
-
-int inputVal = 0;
-bool readAnalogSensor(int pin)
-{
-  inputVal = touchRead(pin);
-
-/*
-  Serial.print("Touch value is Pin");
-  Serial.print(pin);
-  Serial.print(" = ");
-  Serial.println( inputVal);
-*/
-
-  bool buttonPressed = inputVal < TOUCH_SENSE;
-
-  return buttonPressed;
-}
-
-int readAnalogSensorRaw(int pin) {
-  inputVal = touchRead(pin);
-
-/*
-  Serial.print("Touch value is Pin");
-  Serial.print(pin);
-  Serial.print(" = ");
-  Serial.println( inputVal);
-*/
-
-  return inputVal;
 }
 
 unsigned long previousTime = 0;
@@ -444,16 +299,14 @@ void loop()
 
   previousTime = currentTime;
   
-  if(buttonState->upPressed()) {
+  if(buttonState->pressed(ButtonState::up)) {
     deviceOffset--;
     tft.fillScreen(TFT_BLACK);
-  } else if(buttonState->downPressed()) {
+  } else if(buttonState->pressed(ButtonState::down)) {
     deviceOffset++;
     tft.fillScreen(TFT_BLACK);
   }
   
-  //tft.fillScreen(TFT_BLACK);
-
   if(deviceOffset < 0) {
     deviceOffset = devicesHistory->getCount() - 1;
   } else if(deviceOffset >= devicesHistory->getCount()) {
