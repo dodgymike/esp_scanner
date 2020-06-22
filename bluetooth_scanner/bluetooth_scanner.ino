@@ -100,7 +100,7 @@ void loop()
 
   if(mode == MODE_SHOW_DEVICES) {
     showDevices();
-  } else {
+  } else if(mode == MODE_SHOW_DEVICE) {
     showDevice(devicesHistory, displayDeviceOffset);
   }
 }
