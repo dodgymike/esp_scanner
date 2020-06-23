@@ -95,7 +95,7 @@ void loop()
     if(buttonState->pressed(ButtonState::left)) {
       mode = MODE_SHOW_DEVICES;
       tft.fillScreen(TFT_BLACK);
-    } else if(buttonState->pressed(ButtonState::right)) {
+    } else if(buttonState->pressed(ButtonState::up)) {
       if ( xSemaphoreTake(devicesHistory->xDevicesSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {
         devicesHistory->history[displayDeviceOffset].switchBuffer();
         tft.fillScreen(TFT_BLACK);
