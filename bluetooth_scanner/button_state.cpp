@@ -32,7 +32,7 @@ bool ButtonState::pressed(int button) {
       }
     }
     
-    if(buttonPressedCount >= 3) {
+    if(buttonPressedCount >= 2) {
       for(int i = 0; i < BUTTON_STATE_HISTORY_SIZE; i++) {
         buttonStates[i][button] = false;
       }
