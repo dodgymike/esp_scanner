@@ -3,9 +3,12 @@
 
 #include <Arduino.h>
 
+#define BUTTON_STATE_HISTORY_SIZE (10)
+
 class ButtonState {
   private:
-    bool buttonStates[6];
+    bool buttonStates[BUTTON_STATE_HISTORY_SIZE][6];
+    int buttonStatesIndex[6];
     int  buttonTops[6];
     
   public:
