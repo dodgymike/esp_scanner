@@ -113,11 +113,49 @@ void loop()
 }
 
 void showDevice(DevicesHistory* devicesHistory, int displayDeviceOffset) {
+  tft.fillScreen(TFT_BLACK);
+
   for(int bufferIndex = 0; bufferIndex < DEVICE_HISTORY_BUFFERS; bufferIndex++) {
     drawDeviceHistory(GRAPH_HEIGHT + (GRAPH_HEIGHT * bufferIndex), (devicesHistory->history[displayDeviceOffset].getSignalLevelBufferIndex() == bufferIndex), &(devicesHistory->history[displayDeviceOffset]), bufferIndex, devicesHistory->xDevicesSemaphore);
   }
 
-  
+  int minA = 9999;
+  int minB = 9999;
+  int maxA = -9999;
+  int maxB = -9999;
+
+  for(int signalLevelIndex = 0; signalLevelIndex < DEVICE_HISTORY_SIZE; signalLevelIndex++) {
+//    tft.drawCircle(120, 50, -1 * devicesHistory->history[displayDeviceOffset].getSignalLevels(0)[signalLevelIndex], TFT_WHITE);
+//    tft.drawCircle(120, 150, -1 * devicesHistory->history[displayDeviceOffset].getSignalLevels(1)[signalLevelIndex], TFT_WHITE);
+    int currentA = devicesHistory->history[displayDeviceOffset].getSignalLevels(0)[signalLevelIndex] * -1;
+    if(currentA != -100) {
+      if(currentA < minA) {
+        minA = currentA;
+      }
+      if(currentA > maxA) {
+        maxA = currentA;
+      }
+    }
+        
+    int currentB = devicesHistory->history[displayDeviceOffset].getSignalLevels(1)[signalLevelIndex] * -1;
+    if(currentB != -100) {
+      if(currentB < minB) {
+        minB = currentB;
+      }
+      if(currentB > maxB) {
+        maxB = currentB;
+      }
+    }
+  }
+
+  tft.drawLine(120, 0, 120, 240, TFT_GREEN);
+  for(int i = 0; i <= 240; i += 20) {
+    tft.drawLine(110, i, 130, i, TFT_GREEN);
+  }
+
+  tft.fillRect(120 - 5, 50 + abs(minA), 10, abs(minB), TFT_WHITE);
+//  tft.fillRect(110, 50 + abs(minA), 130, 150 - abs(minB), TFT_WHITE);
+//  tft.fillRect(110, 50, 130, 60, TFT_WHITE);
 }
 
 void drawDeviceHistory(int y, bool isSelectedDevice, DeviceHistory* deviceHistory, SemaphoreHandle_t xSemaphore) {
