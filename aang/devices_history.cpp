@@ -74,6 +74,12 @@ int DevicesHistory::getCount() {
   return rv;
 }
 
+void DeviceHistory::copySignalLevels(int signalLevelsOut[]) {
+  for(int i = 0; i < DEVICE_HISTORY_SIZE; i++) {
+    signalLevelsOut[i] = signalLevels[signalLevelBufferIndex][i];
+  }
+}
+
 void DevicesHistory::incrementCount() {
   if (xSemaphoreTake(xCountSemaphore, ( TickType_t ) 5 ) == pdTRUE) {  
     count++;
@@ -84,6 +90,18 @@ void DevicesHistory::incrementCount() {
 DevicesHistory::DevicesHistory()
   : count(0), xDevicesSemaphore(xSemaphoreCreateMutex()), xCountSemaphore(xSemaphoreCreateMutex())
 {
+  locationSignalLevelsIndex[0] = 0;
+  locationSignalLevelsIndex[1] = 0;
+  locationSignalLevelsIndex[2] = 0;
+
+  phase = 0;
+
+  for(int bufferIndex = 0; bufferIndex < LOCATION_HISTORY_BUFFERS; bufferIndex++) {
+    for(int i = 0; i < DEVICE_HISTORY_SIZE; i++) {
+      locationSignalLevels[bufferIndex][i] = -100;
+    }
+  }
+    
   xSemaphoreGive(xDevicesSemaphore);
   xSemaphoreGive(xCountSemaphore);
 }

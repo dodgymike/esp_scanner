@@ -27,7 +27,11 @@ class DeviceHistory {
 
     void setName(const char* name);
     bool checkName(const char* nameToCheck);
+    void copySignalLevels(int signalLevels[]);
 };
+
+
+#define LOCATION_HISTORY_BUFFERS (3)
 
 class DevicesHistory {
   private:
@@ -37,6 +41,10 @@ class DevicesHistory {
   public:
     SemaphoreHandle_t xDevicesSemaphore;
     DeviceHistory history[100];
+
+    int locationSignalLevels[LOCATION_HISTORY_BUFFERS][DEVICE_HISTORY_SIZE];
+    int locationSignalLevelsIndex[LOCATION_HISTORY_BUFFERS];
+    int phase;
 
     int getCount();
     void incrementCount();
