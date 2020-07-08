@@ -4,8 +4,8 @@
 #include <Arduino.h>
 
 #define DEVICE_ADDRESS_SIZE (50)
-#define DEVICE_HISTORY_SIZE (80)
-#define DEVICE_HISTORY_BUFFERS (2)
+#define DEVICE_HISTORY_SIZE (120)
+#define DEVICE_HISTORY_BUFFERS (1)
 
 class DeviceHistory {
     int signalLevels[DEVICE_HISTORY_BUFFERS][DEVICE_HISTORY_SIZE];

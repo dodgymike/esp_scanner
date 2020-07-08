@@ -27,6 +27,7 @@ unsigned long previousTime = 0;
 #define MODE_SHOW_DEVICES (0)
 #define MODE_SHOW_DEVICE (1)
 
+
 unsigned int mode = MODE_SHOW_DEVICES;
 
 char displayDeviceOffset = 0;
@@ -118,6 +119,8 @@ void loop()
   }
 }
 
+#define PIXELS_PER_DEGREE (360 / DEVICE_HISTORY_SIZE)
+
 void showDevice(DevicesHistory* devicesHistory, int displayDeviceOffset) {
   tft.fillScreen(TFT_BLACK);
 
@@ -181,8 +184,8 @@ void showDevice(DevicesHistory* devicesHistory, int displayDeviceOffset) {
   }
   */
 
-  int x = accB - accA;
-  int y = accB - accC;
+  int y = accB - accA;
+  int x = accB - accC;
 
   tft.drawLine(120, 120, 120 + x, 120 + y, TFT_WHITE);
 //  tft.fillRect(120, 120, 120 + x, 120 + y, TFT_WHITE);
@@ -194,6 +197,35 @@ void showDevice(DevicesHistory* devicesHistory, int displayDeviceOffset) {
 
 //  tft.fillRect(110, 50 + abs(minA), 130, 150 - abs(minB), TFT_WHITE);
 //  tft.fillRect(110, 50, 130, 60, TFT_WHITE);
+
+  int circleBuffer[DEVICE_HISTORY_SIZE];
+  displayDevice->copySignalLevels(circleBuffer);
+  int currentSignalLevelIndex = displayDevice->getSignalLevelsIndex();
+  
+  int previousX = 0;
+  int previousY = 0;
+  
+  for(int signalLevelIndex = 0.0; signalLevelIndex < DEVICE_HISTORY_SIZE; signalLevelIndex++) {
+    if(circleBuffer[signalLevelIndex] == -100) {
+      continue;
+    }
+    
+    float angle = 3.0 * ((float)signalLevelIndex);
+    float angleToRadians = 6.28318530718 * angle / 360.0;
+    
+    int x = 120 + ((int)(sin(angleToRadians) * circleBuffer[signalLevelIndex]));
+    int y = 120 + ((int)(cos(angleToRadians) * circleBuffer[signalLevelIndex]));
+
+//    tft.fillRect(x, y, 3, 3, TFT_ORANGE);
+    if((signalLevelIndex >= 3) && (abs(signalLevelIndex - currentSignalLevelIndex) <= 3)) {
+      tft.drawLine(x, y, previousX, previousY, TFT_WHITE);
+    } else if(signalLevelIndex != 0) {
+      tft.drawLine(x, y, previousX, previousY, TFT_ORANGE);
+    }
+
+    previousX = x;
+    previousY = y;
+  }
 }
 
 void drawDeviceHistory(int y, bool isSelectedDevice, DeviceHistory* deviceHistory, SemaphoreHandle_t xSemaphore) {

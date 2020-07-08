@@ -42,6 +42,12 @@ void bluetoothTask(void* parameter) {
             devicesHistory->incrementCount();
             foundDeviceIndex = devicesHistory->getCount() - 1;
 
+            if(foundDevice.haveName()) {
+//              strncpy(deviceAddress, foundDevice.getName(), 180);
+              bzero(deviceAddress, 180);
+              foundDevice.getName().copy(deviceAddress, 20);
+            }
+            
             devicesHistory->history[foundDeviceIndex].setName(deviceAddress);
           }
           
