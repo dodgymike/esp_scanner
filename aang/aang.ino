@@ -2,12 +2,10 @@
 #include <stdlib.h>
 #include <math.h>
 
-
-#include <math.h>
-
 #include "button_task.h"
 #include "button_state.h"
 #include "bluetooth_task.h"
+#include "wifi_task.h"
 #include "devices_history.h"
 
 #include <TFT_eSPI.h>
@@ -22,6 +20,7 @@ int deviceOffset;
 ButtonState* buttonState = NULL;
 DevicesHistory* devicesHistory = NULL;
 unsigned long previousTime = 0;
+unsigned long previousBlankTime = 0;
 
 
 #define MODE_SHOW_DEVICES (0)
@@ -58,14 +57,26 @@ void setup()
     2,                 /* Priority of the task. */
     NULL);             /* Task handle. */
 
+/*
   Serial.println("Starting bluetoothTask");
   xTaskCreate(
-    bluetoothTask,       /* Task function. */
-    "bluetoothTask",     /* String with name of task. */
-    25000,             /* Stack size in words. */
-    (void*)devicesHistory,              /* Parameter passed as input of the task */
-    2,                 /* Priority of the task. */
-    NULL);             /* Task handle. */
+    bluetoothTask,
+    "bluetoothTask",
+    25000,
+    (void*)devicesHistory,
+    2,
+    NULL);
+*/
+  Serial.println("Starting wifiTask");
+  xTaskCreate(
+    wifiTask,
+    "wifiTask",
+    25000,
+    (void*)devicesHistory,
+    2,
+    NULL);
+    /*
+    */
 }
 
 
@@ -93,6 +104,11 @@ void loop()
       tft.fillScreen(TFT_BLACK);
     }
   } else if(mode == MODE_SHOW_DEVICE) {
+    if(currentTime - previousBlankTime > 1000) {
+      tft.fillScreen(TFT_BLACK);
+      previousBlankTime = currentTime;
+    }
+
     if(buttonState->pressed(ButtonState::left)) {
       mode = MODE_SHOW_DEVICES;
       tft.fillScreen(TFT_BLACK);
@@ -122,8 +138,14 @@ void loop()
 #define PIXELS_PER_DEGREE (360 / DEVICE_HISTORY_SIZE)
 
 void showDevice(DevicesHistory* devicesHistory, int displayDeviceOffset) {
-  tft.fillScreen(TFT_BLACK);
+  DeviceHistory* displayDevice = &(devicesHistory->history[displayDeviceOffset]);
+  int currentSignalLevelIndex = displayDevice->getSignalLevelsIndex();
+//  Serial.print(currentSignalLevelIndex);
 
+//  if(blankScreen) {
+//    tft.fillScreen(TFT_BLACK);
+//  }
+  
 //  for(int bufferIndex = 0; bufferIndex < DEVICE_HISTORY_BUFFERS; bufferIndex++) {
 //    drawDeviceHistory(GRAPH_HEIGHT + (GRAPH_HEIGHT * bufferIndex), (devicesHistory->history[displayDeviceOffset].getSignalLevelBufferIndex() == bufferIndex), &(devicesHistory->history[displayDeviceOffset]), bufferIndex, devicesHistory->xDevicesSemaphore);
 //  }
@@ -134,7 +156,6 @@ void showDevice(DevicesHistory* devicesHistory, int displayDeviceOffset) {
   drawDeviceHistory(GRAPH_HEIGHT + (GRAPH_HEIGHT * bufferIndex), (devicesHistory->history[displayDeviceOffset].getSignalLevelBufferIndex() == bufferIndex), &(devicesHistory->history[displayDeviceOffset]), bufferIndex, devicesHistory->xDevicesSemaphore);
 */
 
-  DeviceHistory* displayDevice = &(devicesHistory->history[displayDeviceOffset]);
   displayDevice->copySignalLevels(devicesHistory->locationSignalLevels[devicesHistory->phase]);
 
   int locationBufferIndex = 0;
@@ -200,10 +221,13 @@ void showDevice(DevicesHistory* devicesHistory, int displayDeviceOffset) {
 
   int circleBuffer[DEVICE_HISTORY_SIZE];
   displayDevice->copySignalLevels(circleBuffer);
-  int currentSignalLevelIndex = displayDevice->getSignalLevelsIndex();
   
   int previousX = 0;
   int previousY = 0;
+
+  for(int guideRadius = 10; guideRadius <= 100; guideRadius += 20) {
+    tft.drawCircle(120, 120, guideRadius, TFT_DARKGREY);
+  }
   
   for(int signalLevelIndex = 0.0; signalLevelIndex < DEVICE_HISTORY_SIZE; signalLevelIndex++) {
     if(circleBuffer[signalLevelIndex] == -100) {
