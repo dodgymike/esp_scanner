@@ -105,7 +105,7 @@ void loop()
     }
   } else if(mode == MODE_SHOW_DEVICE) {
     if(currentTime - previousBlankTime > 1000) {
-      tft.fillScreen(TFT_BLACK);
+      //tft.fillScreen(TFT_BLACK);
       previousBlankTime = currentTime;
     }
 
@@ -137,9 +137,31 @@ void loop()
 
 #define PIXELS_PER_DEGREE (360 / DEVICE_HISTORY_SIZE)
 
+int signalDrawBufferCurrent[DEVICE_HISTORY_SIZE];
+int signalDrawBufferPrevious[DEVICE_HISTORY_SIZE];
+int previousSignalLevelIndex = 0;
+
 void showDevice(DevicesHistory* devicesHistory, int displayDeviceOffset) {
   DeviceHistory* displayDevice = &(devicesHistory->history[displayDeviceOffset]);
   int currentSignalLevelIndex = displayDevice->getSignalLevelsIndex();
+
+  if(currentSignalLevelIndex == previousSignalLevelIndex) {
+    return;
+  }
+
+  previousSignalLevelIndex = currentSignalLevelIndex;
+
+//  float angle = 3.0 * ((float)currentSignalLevelIndex);
+//  float angleToRadians = 6.28318530718 * angle / 360.0;
+//  
+//  int xA = 120 + ((int)(sin(angleToRadians) * 100)) + 5;
+//  int yA = 120 + ((int)(cos(angleToRadians) * 100)) + 5;
+//  int xB = 120 - ((int)(sin(angleToRadians) * 100)) - 5;
+//  int yB = 120 - ((int)(cos(angleToRadians) * 100)) - 5;
+//
+//  tft.fillRect(xA, yA, xB, yB, TFT_BLACK);
+  
+
 //  Serial.print(currentSignalLevelIndex);
 
 //  if(blankScreen) {
@@ -157,6 +179,7 @@ void showDevice(DevicesHistory* devicesHistory, int displayDeviceOffset) {
 */
 
   displayDevice->copySignalLevels(devicesHistory->locationSignalLevels[devicesHistory->phase]);
+  displayDevice->copySignalLevels(signalDrawBufferCurrent);
 
   int locationBufferIndex = 0;
   drawDeviceHistory(GRAPH_HEIGHT + (GRAPH_HEIGHT * locationBufferIndex), (devicesHistory->phase == locationBufferIndex), devicesHistory->locationSignalLevels[locationBufferIndex], devicesHistory->locationSignalLevelsIndex[locationBufferIndex], "1", devicesHistory->xDevicesSemaphore);
@@ -219,8 +242,6 @@ void showDevice(DevicesHistory* devicesHistory, int displayDeviceOffset) {
 //  tft.fillRect(110, 50 + abs(minA), 130, 150 - abs(minB), TFT_WHITE);
 //  tft.fillRect(110, 50, 130, 60, TFT_WHITE);
 
-  int circleBuffer[DEVICE_HISTORY_SIZE];
-  displayDevice->copySignalLevels(circleBuffer);
   
   int previousX = 0;
   int previousY = 0;
@@ -228,27 +249,52 @@ void showDevice(DevicesHistory* devicesHistory, int displayDeviceOffset) {
   for(int guideRadius = 10; guideRadius <= 100; guideRadius += 20) {
     tft.drawCircle(120, 120, guideRadius, TFT_DARKGREY);
   }
+
+  // first round we draw over the previous line in black
+  // second round we draw the new line in orange
+  int circleBuffer[DEVICE_HISTORY_SIZE];
+  int drawColour = TFT_BLACK;
+  int highlightColour = TFT_BLACK;
+    
+  // copy the history into the draw buffer
+  for(int i = 0; i < DEVICE_HISTORY_SIZE; i++) {
+    circleBuffer[i] = signalDrawBufferPrevious[i];
+  }
   
-  for(int signalLevelIndex = 0.0; signalLevelIndex < DEVICE_HISTORY_SIZE; signalLevelIndex++) {
-    if(circleBuffer[signalLevelIndex] == -100) {
-      continue;
+  for(int bufferIndex = 0; bufferIndex < 2; bufferIndex++) {
+    for(int signalLevelIndex = 0.0; signalLevelIndex < DEVICE_HISTORY_SIZE; signalLevelIndex++) {
+      if(circleBuffer[signalLevelIndex] == -100) {
+        continue;
+      }
+      
+      float angle = 3.0 * ((float)signalLevelIndex);
+      float angleToRadians = 6.28318530718 * angle / 360.0;
+      
+      int x = 120 + ((int)(sin(angleToRadians) * circleBuffer[signalLevelIndex]));
+      int y = 120 + ((int)(cos(angleToRadians) * circleBuffer[signalLevelIndex]));
+  
+      if((signalLevelIndex >= 3) && (abs(signalLevelIndex - currentSignalLevelIndex) <= 3)) {
+        tft.drawLine(x, y, previousX, previousY, highlightColour);
+      } else if(signalLevelIndex != 0) {
+        tft.drawLine(x, y, previousX, previousY, drawColour);
+      }
+  
+      previousX = x;
+      previousY = y;
     }
     
-    float angle = 3.0 * ((float)signalLevelIndex);
-    float angleToRadians = 6.28318530718 * angle / 360.0;
-    
-    int x = 120 + ((int)(sin(angleToRadians) * circleBuffer[signalLevelIndex]));
-    int y = 120 + ((int)(cos(angleToRadians) * circleBuffer[signalLevelIndex]));
-
-//    tft.fillRect(x, y, 3, 3, TFT_ORANGE);
-    if((signalLevelIndex >= 3) && (abs(signalLevelIndex - currentSignalLevelIndex) <= 3)) {
-      tft.drawLine(x, y, previousX, previousY, TFT_WHITE);
-    } else if(signalLevelIndex != 0) {
-      tft.drawLine(x, y, previousX, previousY, TFT_ORANGE);
+    // move to the current buffer
+    for(int i = 0; i < DEVICE_HISTORY_SIZE; i++) {
+      circleBuffer[i] = signalDrawBufferCurrent[i];
     }
-
-    previousX = x;
-    previousY = y;
+    // draw in white
+    drawColour = TFT_ORANGE;  
+    highlightColour = TFT_WHITE;
+  }
+  
+  // overwrite the previous history with the current
+  for(int i = 0; i < DEVICE_HISTORY_SIZE; i++) {
+    signalDrawBufferPrevious[i] = signalDrawBufferCurrent[i];
   }
 }
 
