@@ -31,7 +31,7 @@ DevicesHistory* wifiDevicesHistory = NULL;
 void wifiTask(void* parameter) {
   wifiDevicesHistory = (DevicesHistory*)parameter;
 
-  int set_channel = 1;
+  int set_channel = 0;
 
   wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
   esp_wifi_init(&cfg);
@@ -47,6 +47,23 @@ void wifiTask(void* parameter) {
 //  WiFi.disconnect();
   delay(100);
 
+  while(true) {  
+    for(int i = 1; i < 12; i++) {
+//      esp_wifi_stop();
+//      esp_wifi_start();
+//      esp_wifi_set_promiscuous(true);
+//      esp_wifi_set_promiscuous_filter(&filt);
+//      esp_wifi_set_promiscuous_rx_cb(&beaconSnifferCallback);
+      int response = esp_wifi_set_channel(i, WIFI_SECOND_CHAN_NONE);
+      Serial.print("Changing to channel: ");
+      Serial.print(i);
+      Serial.print(" - ");
+      Serial.print(response);
+      Serial.println("");
+      delay(50);
+    }
+  }
+  
   while(true) {  
     delay(1000);
   }
