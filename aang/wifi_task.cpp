@@ -80,27 +80,27 @@ void beaconSnifferCallback(void* buf, wifi_promiscuous_pkt_type_t type)
 //      Serial.print(snifferPacket->rx_ctrl.rssi);
 //      Serial.print(" Ch: ");
 //      Serial.print(snifferPacket->rx_ctrl.channel);
-      Serial.print(" BSSID: ");
-      char deviceAddress[] = "00:00:00:00:00:00";
-      getMAC(deviceAddress, snifferPacket->payload, 10);
-      Serial.print(deviceAddress);
-      display_string.concat(deviceAddress);
-      Serial.print(" ESSID: ");
-      display_string.concat(" -> ");
+      //Serial.print(" BSSID: ");
+      char deviceAddressBSSID[] = "00:00:00:00:00:00";
+      getMAC(deviceAddressBSSID, snifferPacket->payload, 10);
+      //Serial.print(deviceAddressBSSID);
+      //display_string.concat(deviceAddressBSSID);
+      //Serial.print(" ESSID: ");
+      //display_string.concat(" -> ");
       for (int i = 0; i < snifferPacket->payload[37]; i++)
       {
-        Serial.print((char)snifferPacket->payload[i + 38]);
+        //Serial.print((char)snifferPacket->payload[i + 38]);
         display_string.concat((char)snifferPacket->payload[i + 38]);
       }
 
-      int temp_len = display_string.length();
-      for (int i = 0; i < 40 - temp_len; i++)
-      {
-        display_string.concat(" ");
-      }
+//      int temp_len = display_string.length();
+//      for (int i = 0; i < 40 - temp_len; i++)
+//      {
+//        display_string.concat(" ");
+//      }
 
-      Serial.print(" ");
-      Serial.println();
+//      Serial.print(" ");
+//      Serial.println();
 
       if ( xSemaphoreTake( wifiDevicesHistory->xDevicesSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {
 /*
@@ -126,6 +126,11 @@ void beaconSnifferCallback(void* buf, wifi_promiscuous_pkt_type_t type)
   //          sprintf(deviceAddress, "%s\n%x:%x:%x:%x:%x:%x", ssid.c_str(), WiFi.BSSID(i)[0], WiFi.BSSID(i)[1], WiFi.BSSID(i)[2], WiFi.BSSID(i)[3], WiFi.BSSID(i)[4], WiFi.BSSID(i)[5]);
                         
 */
+
+            char deviceAddress[200];
+            bzero(deviceAddress, 200);
+            sprintf(deviceAddress, "%s\n%s", display_string.c_str(), deviceAddressBSSID);
+            
             int foundDeviceIndex = -1;
             for(int deviceIndex = 0; deviceIndex < wifiDevicesHistory->getCount(); deviceIndex++) {
                if(wifiDevicesHistory->history[deviceIndex].checkName(deviceAddress)) {
