@@ -78,6 +78,8 @@ uint8_t probeBytes[] = {
 
 wifi_ieee80211_probe_t* probeData = (wifi_ieee80211_probe_t*)&probeBytes;
 
+int previousChannel = 0;
+
 void wifiTask(void* parameter) {
   wifiDevicesHistory = (DevicesHistory*)parameter;
 
@@ -99,28 +101,24 @@ void wifiTask(void* parameter) {
   delay(100);
 
   while(true) {
-    for(int i = 1; i < 12; i++) {
-//      esp_wifi_stop();
-//      esp_wifi_start();
-//      esp_wifi_set_promiscuous(true);
-//      esp_wifi_set_promiscuous_filter(&filt);
-//      esp_wifi_set_promiscuous_rx_cb(&beaconSnifferCallback);
-      int response = esp_wifi_set_channel(i, WIFI_SECOND_CHAN_NONE);
-      Serial.print("Changing to channel: ");
-      Serial.print(i);
-      Serial.print(" - ");
-      Serial.print(response);
-      Serial.println("");
+    int wifiChannel = wifiDevicesHistory->getWifiChannel();
+    
+    if(wifiChannel == 0) {
+      for(int i = 1; i < 12; i++) {
+        int response = esp_wifi_set_channel(i, WIFI_SECOND_CHAN_NONE);
+        int txStatus = esp_wifi_80211_tx(WIFI_IF_STA, probeData, 33, true);
+  
+        delay(50);
+      }
 
-      int txStatus = esp_wifi_80211_tx(WIFI_IF_STA, probeData, 33, true);
-      Serial.println(txStatus);
-
+      previousChannel = wifiChannel;
+    } else {   
+      if(previousChannel != wifiChannel) {
+        int response = esp_wifi_set_channel(wifiChannel, WIFI_SECOND_CHAN_NONE);
+        previousChannel = wifiChannel;
+      }
       delay(50);
     }
-  }
-  
-  while(true) {  
-    delay(1000);
   }
 }
 
@@ -199,32 +197,30 @@ void beaconSnifferCallback(void* buf, wifi_promiscuous_pkt_type_t type)
                         
 */
 
-            char deviceAddress[200];
-            bzero(deviceAddress, 200);
-            sprintf(deviceAddress, "%s\n%s", display_string.c_str(), deviceAddressBSSID);
-            
-            int foundDeviceIndex = -1;
-            for(int deviceIndex = 0; deviceIndex < wifiDevicesHistory->getCount(); deviceIndex++) {
-               if(wifiDevicesHistory->history[deviceIndex].checkName(deviceAddress)) {
-                    foundDeviceIndex = deviceIndex;
-                    break;
-               }
-            }
-
-            if(foundDeviceIndex == -1) {
-              wifiDevicesHistory->incrementCount();
-              foundDeviceIndex = wifiDevicesHistory->getCount() - 1;
-  
-              wifiDevicesHistory->history[foundDeviceIndex].setName(deviceAddress);
-            }
-
-            int rssi = snifferPacket->rx_ctrl.rssi;
-            wifiDevicesHistory->history[foundDeviceIndex].setSignalLevel(rssi);
-            
-            /*
-            wifiDevicesHistory->history[foundDeviceIndex].setSignalLevel(snifferPacket->rx_ctrl.rssi);
+        char deviceAddress[200];
+        bzero(deviceAddress, 200);
+        sprintf(deviceAddress, "%s\n%s", display_string.c_str(), deviceAddressBSSID);
         
-      */
+        int foundDeviceIndex = -1;
+        for(int deviceIndex = 0; deviceIndex < wifiDevicesHistory->getCount(); deviceIndex++) {
+           if(wifiDevicesHistory->history[deviceIndex].checkName(deviceAddress)) {
+                foundDeviceIndex = deviceIndex;
+                break;
+           }
+        }
+
+        if(foundDeviceIndex == -1) {
+          wifiDevicesHistory->incrementCount();
+          foundDeviceIndex = wifiDevicesHistory->getCount() - 1;
+
+          wifiDevicesHistory->history[foundDeviceIndex].setName(deviceAddress);
+        }
+
+        int rssi = snifferPacket->rx_ctrl.rssi;
+        int channel = snifferPacket->rx_ctrl.channel;
+        wifiDevicesHistory->history[foundDeviceIndex].setSignalLevel(rssi);
+        wifiDevicesHistory->history[foundDeviceIndex].setChannel(channel);
+        
         xSemaphoreGive( wifiDevicesHistory->xDevicesSemaphore );
       }
     }

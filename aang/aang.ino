@@ -100,6 +100,8 @@ void loop()
       mode = MODE_SHOW_DEVICE;
       
       displayDeviceOffset = deviceOffset;
+
+      devicesHistory->setWifiChannel(devicesHistory->history[displayDeviceOffset].getChannel());
       
       tft.fillScreen(TFT_BLACK);
     }
@@ -111,6 +113,8 @@ void loop()
 
     if(buttonState->pressed(ButtonState::left)) {
       mode = MODE_SHOW_DEVICES;
+      devicesHistory->setWifiChannel(0);
+      
       tft.fillScreen(TFT_BLACK);
     } else if(buttonState->pressed(ButtonState::up)) {
       if ( xSemaphoreTake(devicesHistory->xDevicesSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {

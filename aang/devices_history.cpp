@@ -1,8 +1,10 @@
 #include "devices_history.h"
 
 DeviceHistory::DeviceHistory()
-  : name(""), signalLevelBufferIndex(0)
+  : name(""), signalLevelBufferIndex(0), channel(0), xDeviceSemaphore(xSemaphoreCreateMutex())
 {
+  xSemaphoreGive(xDeviceSemaphore);
+
   for(int bufferIndex = 0; bufferIndex < DEVICE_HISTORY_BUFFERS; bufferIndex++) {
     for(int i = 0; i < DEVICE_HISTORY_SIZE; i++) {
       signalLevels[bufferIndex][i] = -100;
@@ -63,6 +65,30 @@ int DeviceHistory::getSignalLevelBufferIndex() {
   return signalLevelBufferIndex;
 }
 
+void DeviceHistory::copySignalLevels(int signalLevelsOut[]) {
+  for(int i = 0; i < DEVICE_HISTORY_SIZE; i++) {
+    signalLevelsOut[i] = signalLevels[signalLevelBufferIndex][i];
+  }
+}
+
+void DeviceHistory::setChannel(int channelIn) {
+  if (xSemaphoreTake(xDeviceSemaphore, ( TickType_t ) 5 ) == pdTRUE) {  
+    channel = channelIn;
+    xSemaphoreGive(xDeviceSemaphore);
+  }      
+}
+
+int DeviceHistory::getChannel() {
+  int rv = 0;
+  
+  if (xSemaphoreTake(xDeviceSemaphore, ( TickType_t ) 5 ) == pdTRUE) {  
+    rv = channel;
+    xSemaphoreGive(xDeviceSemaphore);
+  }      
+
+  return rv;
+}
+
 int DevicesHistory::getCount() {
   int rv = 0;
   
@@ -74,12 +100,6 @@ int DevicesHistory::getCount() {
   return rv;
 }
 
-void DeviceHistory::copySignalLevels(int signalLevelsOut[]) {
-  for(int i = 0; i < DEVICE_HISTORY_SIZE; i++) {
-    signalLevelsOut[i] = signalLevels[signalLevelBufferIndex][i];
-  }
-}
-
 void DevicesHistory::incrementCount() {
   if (xSemaphoreTake(xCountSemaphore, ( TickType_t ) 5 ) == pdTRUE) {  
     count++;
@@ -87,8 +107,25 @@ void DevicesHistory::incrementCount() {
   }      
 }
 
+void DevicesHistory::setWifiChannel(int wifiChannelIn) {
+  if (xSemaphoreTake(xCountSemaphore, ( TickType_t ) 5 ) == pdTRUE) {  
+    wifiChannel = wifiChannelIn;
+    xSemaphoreGive(xCountSemaphore);
+  }      
+}
+
+int DevicesHistory::getWifiChannel() {
+  int rv = 0;
+  if (xSemaphoreTake(xCountSemaphore, ( TickType_t ) 5 ) == pdTRUE) {  
+    rv = wifiChannel;
+    xSemaphoreGive(xCountSemaphore);
+  }      
+
+  return wifiChannel;
+}
+
 DevicesHistory::DevicesHistory()
-  : count(0), xDevicesSemaphore(xSemaphoreCreateMutex()), xCountSemaphore(xSemaphoreCreateMutex())
+  : count(0), wifiChannel(0), xDevicesSemaphore(xSemaphoreCreateMutex()), xCountSemaphore(xSemaphoreCreateMutex())
 {
   locationSignalLevelsIndex[0] = 0;
   locationSignalLevelsIndex[1] = 0;

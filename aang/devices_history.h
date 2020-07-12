@@ -11,6 +11,9 @@ class DeviceHistory {
     int signalLevels[DEVICE_HISTORY_BUFFERS][DEVICE_HISTORY_SIZE];
     int signalLevelsIndex[DEVICE_HISTORY_BUFFERS];
     int signalLevelBufferIndex;
+    int channel;
+
+    SemaphoreHandle_t xDeviceSemaphore;
   public:
     char name[DEVICE_ADDRESS_SIZE];
 
@@ -22,6 +25,9 @@ class DeviceHistory {
     void switchBuffer();
     void setSignalLevel(int signalLevel);
     void setSignalLevelBuffer(int signalLevelBufferIndexIn);
+
+    void setChannel(int channel);
+    int getChannel();
 
     DeviceHistory();
 
@@ -37,6 +43,7 @@ class DevicesHistory {
   private:
     int count;
     SemaphoreHandle_t xCountSemaphore;
+    int wifiChannel;
       
   public:
     SemaphoreHandle_t xDevicesSemaphore;
@@ -48,6 +55,9 @@ class DevicesHistory {
 
     int getCount();
     void incrementCount();
+    
+    void setWifiChannel(int wifiChannelIn);
+    int getWifiChannel();
 
     DevicesHistory();
 };
