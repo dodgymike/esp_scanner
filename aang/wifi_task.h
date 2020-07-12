@@ -27,6 +27,11 @@ typedef struct {
   uint8_t payload[0];
 } wifi_ieee80211_packet_t;
 
+typedef struct {
+  uint8_t payload[];
+  char ssid[];
+} __attribute__((packed)) wifi_ieee80211_probe_t;
+
 static void getMAC(char *addr, uint8_t* data, uint16_t offset);
 
 #endif

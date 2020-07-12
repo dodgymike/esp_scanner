@@ -28,6 +28,56 @@ String translateEncryptionType(wifi_auth_mode_t encryptionType) {
 
 DevicesHistory* wifiDevicesHistory = NULL;
 
+
+uint8_t probeBytes[] = {
+  64,
+  0,
+  0,
+  0,
+  
+  255,
+  255,
+  255,
+  255,
+  255,
+  255,
+  
+  0,
+  17,
+  34,
+  51,
+  68,
+  85,
+  
+  255,
+  255,
+  255,
+  255,
+  255,
+  255,
+  
+  0,
+  0,
+  
+  0, // ssid length?  
+  7, // ssid length?
+  
+  109,
+  111,
+  111,
+  109,
+  109,
+  111,
+  111
+};
+
+
+//40 00 00 00 ffffffffffff d4ca6d190d65 ffffffffffff c03f
+//CAPABILITIES: 000c54502d4c696e6b5f43324338010802040b160c1218242d1a2c1003ffff00000000000000000000000000000000000000000032043048606cdd1e00904c332c1003ffff000000000000000000000000000000000000000000
+
+
+wifi_ieee80211_probe_t* probeData = (wifi_ieee80211_probe_t*)&probeBytes;
+
 void wifiTask(void* parameter) {
   wifiDevicesHistory = (DevicesHistory*)parameter;
 
@@ -36,7 +86,8 @@ void wifiTask(void* parameter) {
   wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
   esp_wifi_init(&cfg);
   esp_wifi_set_storage(WIFI_STORAGE_RAM);
-  esp_wifi_set_mode(WIFI_MODE_NULL);
+  //esp_wifi_set_mode(WIFI_MODE_NULL);
+  esp_wifi_set_mode(WIFI_MODE_STA);
   esp_wifi_start();
   esp_wifi_set_promiscuous(true);
   esp_wifi_set_promiscuous_filter(&filt);
@@ -47,7 +98,7 @@ void wifiTask(void* parameter) {
 //  WiFi.disconnect();
   delay(100);
 
-  while(true) {  
+  while(true) {
     for(int i = 1; i < 12; i++) {
 //      esp_wifi_stop();
 //      esp_wifi_start();
@@ -60,6 +111,10 @@ void wifiTask(void* parameter) {
       Serial.print(" - ");
       Serial.print(response);
       Serial.println("");
+
+      int txStatus = esp_wifi_80211_tx(WIFI_IF_STA, probeData, 33, true);
+      Serial.println(txStatus);
+
       delay(50);
     }
   }
