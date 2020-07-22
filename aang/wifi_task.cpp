@@ -85,6 +85,23 @@ void wifiTask(void* parameter) {
 
   int set_channel = 0;
 
+/*
+  for(int i = 0; i < 10; i++) {
+    Serial.println("WIFI Wait");
+    delay(1000);
+  }
+
+  while(wifiDevicesHistory->getScanMode() != DEVICES_HISTORY_SCAN_MODE_WIFI) {
+    Serial.println("NOT WIFI MODE");
+    delay(1000);
+  }
+  
+  for(int i = 0; i < 10; i++) {
+    Serial.println("WIFI Wait 2");
+    delay(1000);
+  }
+*/
+ 
   wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
   esp_wifi_init(&cfg);
   esp_wifi_set_storage(WIFI_STORAGE_RAM);
@@ -101,6 +118,17 @@ void wifiTask(void* parameter) {
   delay(100);
 
   while(true) {
+    if(wifiDevicesHistory->getScanMode() != DEVICES_HISTORY_SCAN_MODE_WIFI) {
+      esp_wifi_stop();
+
+      while(wifiDevicesHistory->getScanMode() != DEVICES_HISTORY_SCAN_MODE_WIFI) {
+        Serial.println("NOT WIFI MODE");
+        delay(100);
+      }
+
+      esp_wifi_start();
+    }  
+    
     int wifiChannel = wifiDevicesHistory->getWifiChannel();
     
     if(wifiChannel == 0) {

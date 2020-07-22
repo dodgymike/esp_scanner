@@ -39,13 +39,19 @@ class DeviceHistory {
 
 #define LOCATION_HISTORY_BUFFERS (3)
 
+#define DEVICES_HISTORY_SCAN_MODE_NONE (-1)
+#define DEVICES_HISTORY_SCAN_MODE_BTLE (0)
+#define DEVICES_HISTORY_SCAN_MODE_WIFI (1)
+
 class DevicesHistory {
   private:
     int count;
     SemaphoreHandle_t xCountSemaphore;
     int wifiChannel;
+    int scanMode;
       
   public:
+       
     SemaphoreHandle_t xDevicesSemaphore;
     DeviceHistory history[100];
 
@@ -58,6 +64,9 @@ class DevicesHistory {
     
     void setWifiChannel(int wifiChannelIn);
     int getWifiChannel();
+
+    void setScanMode(int scanModeIn);
+    int getScanMode();
 
     DevicesHistory();
 };

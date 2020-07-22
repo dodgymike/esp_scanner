@@ -108,24 +108,42 @@ void DevicesHistory::incrementCount() {
 }
 
 void DevicesHistory::setWifiChannel(int wifiChannelIn) {
-  if (xSemaphoreTake(xCountSemaphore, ( TickType_t ) 5 ) == pdTRUE) {  
+  if (xSemaphoreTake(xDevicesSemaphore, ( TickType_t ) 5 ) == pdTRUE) {  
     wifiChannel = wifiChannelIn;
-    xSemaphoreGive(xCountSemaphore);
+    xSemaphoreGive(xDevicesSemaphore);
   }      
 }
 
 int DevicesHistory::getWifiChannel() {
   int rv = 0;
-  if (xSemaphoreTake(xCountSemaphore, ( TickType_t ) 5 ) == pdTRUE) {  
+  if (xSemaphoreTake(xDevicesSemaphore, ( TickType_t ) 5 ) == pdTRUE) {  
     rv = wifiChannel;
-    xSemaphoreGive(xCountSemaphore);
+    xSemaphoreGive(xDevicesSemaphore);
   }      
 
-  return wifiChannel;
+  return rv;
 }
 
+void DevicesHistory::setScanMode(int scanModeIn) {
+  if (xSemaphoreTake(xDevicesSemaphore, ( TickType_t ) 5 ) == pdTRUE) {  
+    scanMode = scanModeIn;
+    xSemaphoreGive(xDevicesSemaphore);
+  }      
+}
+
+int DevicesHistory::getScanMode() {
+  int rv = 0;
+  if (xSemaphoreTake(xDevicesSemaphore, ( TickType_t ) 5 ) == pdTRUE) {  
+    rv = scanMode;
+    xSemaphoreGive(xDevicesSemaphore);
+  }      
+
+  return rv;
+}
+
+
 DevicesHistory::DevicesHistory()
-  : count(0), wifiChannel(0), xDevicesSemaphore(xSemaphoreCreateMutex()), xCountSemaphore(xSemaphoreCreateMutex())
+  : count(0), wifiChannel(0), xDevicesSemaphore(xSemaphoreCreateMutex()), xCountSemaphore(xSemaphoreCreateMutex()), scanMode(DEVICES_HISTORY_SCAN_MODE_NONE)
 {
   locationSignalLevelsIndex[0] = 0;
   locationSignalLevelsIndex[1] = 0;

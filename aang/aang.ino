@@ -8,6 +8,8 @@
 #include "wifi_task.h"
 #include "devices_history.h"
 
+#include <BLEDevice.h>
+
 #include <TFT_eSPI.h>
 
 #define BaudRate 115200
@@ -30,6 +32,9 @@ unsigned long previousBlankTime = 0;
 unsigned int mode = MODE_SHOW_DEVICES;
 
 char displayDeviceOffset = 0;
+
+TaskHandle_t xHandle = NULL;
+int previousScanMode = -1;
 
 void setup()
 {   
@@ -56,27 +61,6 @@ void setup()
     (void*)buttonState,              /* Parameter passed as input of the task */
     2,                 /* Priority of the task. */
     NULL);             /* Task handle. */
-
-/*
-  Serial.println("Starting bluetoothTask");
-  xTaskCreate(
-    bluetoothTask,
-    "bluetoothTask",
-    25000,
-    (void*)devicesHistory,
-    2,
-    NULL);
-*/
-  Serial.println("Starting wifiTask");
-  xTaskCreate(
-    wifiTask,
-    "wifiTask",
-    25000,
-    (void*)devicesHistory,
-    2,
-    NULL);
-    /*
-    */
 }
 
 
@@ -104,6 +88,44 @@ void loop()
       devicesHistory->setWifiChannel(devicesHistory->history[displayDeviceOffset].getChannel());
       
       tft.fillScreen(TFT_BLACK);
+    } else if(buttonState->pressed(ButtonState::a)) {
+      if(devicesHistory->getScanMode() != DEVICES_HISTORY_SCAN_MODE_WIFI) {
+        Serial.println("WIFI SCAN MODE");
+        devicesHistory->setScanMode(DEVICES_HISTORY_SCAN_MODE_WIFI);
+
+        if(xHandle != NULL) {
+          vTaskDelete( xHandle );
+          BLEDevice::deinit(true);
+        }
+
+        Serial.println("Starting wifiTask");
+        xTaskCreate(
+          wifiTask,
+          "wifiTask",
+          30000,
+          (void*)devicesHistory,
+          2,
+          &xHandle);
+      }
+    } else if(buttonState->pressed(ButtonState::b)) {
+      if(devicesHistory->getScanMode() != DEVICES_HISTORY_SCAN_MODE_BTLE) {
+        Serial.println("BTLE SCAN MODE");
+        devicesHistory->setScanMode(DEVICES_HISTORY_SCAN_MODE_BTLE);
+
+        if(xHandle != NULL) {
+          vTaskDelete( xHandle );
+          esp_wifi_stop();
+        }
+
+        Serial.println("Starting bluetoothTask");
+        xTaskCreate(
+          bluetoothTask,
+          "bluetoothTask",
+          30000,
+          (void*)devicesHistory,
+          2,
+          &xHandle);
+      }
     }
   } else if(mode == MODE_SHOW_DEVICE) {
     if(currentTime - previousBlankTime > 1000) {

@@ -16,6 +16,8 @@ class ButtonState {
     static const int down  = 1;
     static const int right = 2;
     static const int left  = 3;
+    static const int a     = 4;
+    static const int b     = 5;
   
     SemaphoreHandle_t xButtonSemaphore;
 
