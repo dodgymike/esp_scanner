@@ -59,6 +59,8 @@ class DevicesHistory {
     int locationSignalLevelsIndex[LOCATION_HISTORY_BUFFERS];
     int phase;
 
+    void clean();
+
     int getCount();
     void incrementCount();
     

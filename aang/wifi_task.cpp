@@ -170,6 +170,36 @@ void beaconSnifferCallback(void* buf, wifi_promiscuous_pkt_type_t type)
     const wifi_ieee80211_packet_t *ipkt = (wifi_ieee80211_packet_t *)snifferPacket->payload;
     const WifiMgmtHdr *hdr = &ipkt->hdr;
 
+    if(fctl == 0x4000) {
+      Serial.println("!!!! GOT PROBE PACKET !!!!");
+
+      int payloadOffset = 0;
+      while(len > 0) {
+        uint8_t tagType = snifferPacket->payload[payloadOffset];
+        uint8_t tagLength = snifferPacket->payload[payloadOffset + 1];
+        payloadOffset += 2;
+        len -= 2;
+
+        char pBuf[100];
+        sprintf(pBuf, "%d:%d", tagType, tagLength);
+        Serial.println(pBuf);
+
+        if(tagType == 0) {
+          for (int i = 0; i < tagLength; i++)
+          {
+            //Serial.print((char)snifferPacket->payload[i + 38]);
+           display_string.concat((char)snifferPacket->payload[payloadOffset + i]);
+          }
+          if(tagLength > 0) {
+            Serial.println(display_string.c_str());
+          }
+        }
+                
+        payloadOffset += tagLength;
+        len -= tagLength;
+      }
+    }
+
     // If we dont the buffer size is not 0, don't write or else we get CORRUPT_HEAP
     if ((snifferPacket->payload[0] == 0x80))
     {
@@ -190,6 +220,8 @@ void beaconSnifferCallback(void* buf, wifi_promiscuous_pkt_type_t type)
         //Serial.print((char)snifferPacket->payload[i + 38]);
         display_string.concat((char)snifferPacket->payload[i + 38]);
       }
+
+
 
 //      int temp_len = display_string.length();
 //      for (int i = 0; i < 40 - temp_len; i++)

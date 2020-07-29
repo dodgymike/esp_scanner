@@ -57,7 +57,7 @@ void setup()
   xTaskCreate(
     buttonTask,       /* Task function. */
     "buttonTask",     /* String with name of task. */
-    25000,             /* Stack size in words. */
+    2000,             /* Stack size in words. */
     (void*)buttonState,              /* Parameter passed as input of the task */
     2,                 /* Priority of the task. */
     NULL);             /* Task handle. */
@@ -92,17 +92,18 @@ void loop()
       if(devicesHistory->getScanMode() != DEVICES_HISTORY_SCAN_MODE_WIFI) {
         Serial.println("WIFI SCAN MODE");
         devicesHistory->setScanMode(DEVICES_HISTORY_SCAN_MODE_WIFI);
-
         if(xHandle != NULL) {
+          devicesHistory->clean();
           vTaskDelete( xHandle );
-          BLEDevice::deinit(true);
+          //BLEDevice::deinit(true);
+          BLEDevice::deinit(false);
         }
 
         Serial.println("Starting wifiTask");
         xTaskCreate(
           wifiTask,
           "wifiTask",
-          30000,
+          25000,
           (void*)devicesHistory,
           2,
           &xHandle);
@@ -113,15 +114,22 @@ void loop()
         devicesHistory->setScanMode(DEVICES_HISTORY_SCAN_MODE_BTLE);
 
         if(xHandle != NULL) {
+          Serial.println("DELETING TASK");
+          devicesHistory->clean();
           vTaskDelete( xHandle );
           esp_wifi_stop();
+
+        } else {
         }
+
+        Serial.println("INIT BTLE");
+        BLEDevice::init("ABCDEF");
 
         Serial.println("Starting bluetoothTask");
         xTaskCreate(
           bluetoothTask,
           "bluetoothTask",
-          30000,
+          25000,
           (void*)devicesHistory,
           2,
           &xHandle);

@@ -7,17 +7,19 @@
 #include <BLEAdvertisedDevice.h>
 
 void bluetoothTask(void* parameter) {
-  Serial.println("STARTING BTLE TASK");
+//  Serial.println("STARTING BTLE TASK");
 
   DevicesHistory* devicesHistory = (DevicesHistory*)parameter;
   
   int scanTime = 1; //In seconds
   int scanIndex = 0;
 
+/*
   while(true) {
     Serial.println("BTLE Wait");
     delay(1000);
   }
+*/
   
 /*
   for(int i = 0; i < 10; i++) {
@@ -36,9 +38,7 @@ void bluetoothTask(void* parameter) {
   }
 */
 
-  Serial.println("BEFORE BTLE AA");
-  BLEDevice::init("");
-  Serial.println("BEFORE BTLE A");
+   Serial.println("BEFORE BTLE A");
   BLEScan* pBLEScan = BLEDevice::getScan(); //create new scan
   //pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
   Serial.println("BEFORE BTLE B");
@@ -57,7 +57,9 @@ void bluetoothTask(void* parameter) {
       delay(1000);
     }
     
+    Serial.println("STARTING BTLE SCAN");
     BLEScanResults foundDevices = pBLEScan->start(scanTime, false);
+    Serial.println("FINISHED BTLE SCAN");
 
     if ( xSemaphoreTake( devicesHistory->xDevicesSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {
       for(int i = 0; i < foundDevices.getCount(); i++) {
