@@ -15,9 +15,8 @@ typedef struct
 {   
   int16_t fctl;
   int16_t duration;
-  uint8_t da; 
-  uint8_t sa; 
-  uint8_t bssid;
+  uint8_t receiver_address[6]; 
+  uint8_t sender_address[6]; 
   int16_t seqctl;
   unsigned char payload[];
 } __attribute__((packed)) WifiMgmtHdr;

@@ -162,6 +162,27 @@ int DevicesHistory::getScanMode() {
 }
 
 
+void DevicesHistory::setApAddress(char* apAddressIn) {
+  if (xSemaphoreTake(xDevicesSemaphore, ( TickType_t ) 5 ) == pdTRUE) {  
+    strncpy(apAddress, apAddressIn, DEVICE_ADDRESS_SIZE - 1);
+    apAddress[DEVICE_ADDRESS_SIZE - 1] = 0;
+
+    xSemaphoreGive(xDevicesSemaphore);
+  }      
+}
+
+const char* DevicesHistory::getApAddress() {
+  /*
+  if (xSemaphoreTake(xDevicesSemaphore, ( TickType_t ) 5 ) == pdTRUE) {  
+    
+    xSemaphoreGive(xDevicesSemaphore);
+  } 
+  */
+
+  return apAddress;
+}
+
+
 DevicesHistory::DevicesHistory()
   : count(0), wifiChannel(0), xDevicesSemaphore(xSemaphoreCreateMutex()), xCountSemaphore(xSemaphoreCreateMutex()), scanMode(DEVICES_HISTORY_SCAN_MODE_NONE)
 {

@@ -163,12 +163,32 @@ void beaconSnifferCallback(void* buf, wifi_promiscuous_pkt_type_t type)
 
   String display_string = "";
 
+  int ffCount = 0;
+  for(int i = 0; i < 6; i++) {
+    if(((uint8_t)snifferPacket->payload[4 + i]) == 0xff) {
+      ffCount++;
+    }
+  }
+
+  if(ffCount != 6) {
+    char receiver_address[] = "00:00:00:00:00:00";
+    char sender_address[] = "00:00:00:00:00:00";
+    getMAC(receiver_address, snifferPacket->payload, 4);
+    getMAC(sender_address, snifferPacket->payload, 10);
+    Serial.print("Got packet: ");
+    Serial.print(receiver_address);
+    Serial.print(" - ");
+    Serial.println(sender_address);
+  }
+  
   if (type == WIFI_PKT_MGMT)
   {
     len -= 4;
     int fctl = ntohs(frameControl->fctl);
     const wifi_ieee80211_packet_t *ipkt = (wifi_ieee80211_packet_t *)snifferPacket->payload;
     const WifiMgmtHdr *hdr = &ipkt->hdr;
+
+    
 
     if(fctl == 0x4000) {
       Serial.println("!!!! GOT PROBE PACKET !!!!");

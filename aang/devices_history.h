@@ -39,9 +39,9 @@ class DeviceHistory {
 
 #define LOCATION_HISTORY_BUFFERS (3)
 
-#define DEVICES_HISTORY_SCAN_MODE_NONE (-1)
-#define DEVICES_HISTORY_SCAN_MODE_BTLE (0)
-#define DEVICES_HISTORY_SCAN_MODE_WIFI (1)
+#define DEVICES_HISTORY_SCAN_MODE_NONE    (-1)
+#define DEVICES_HISTORY_SCAN_MODE_BTLE    (0)
+#define DEVICES_HISTORY_SCAN_MODE_WIFI    (1)
 
 class DevicesHistory {
   private:
@@ -49,6 +49,7 @@ class DevicesHistory {
     SemaphoreHandle_t xCountSemaphore;
     int wifiChannel;
     int scanMode;
+    char apAddress[DEVICE_ADDRESS_SIZE];
       
   public:
        
@@ -69,6 +70,9 @@ class DevicesHistory {
 
     void setScanMode(int scanModeIn);
     int getScanMode();
+
+    void setApAddress(char* apAddress);
+    const char* getApAddress();
 
     DevicesHistory();
 };
