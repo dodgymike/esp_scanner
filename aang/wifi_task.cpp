@@ -26,8 +26,6 @@ String translateEncryptionType(wifi_auth_mode_t encryptionType) {
   }
 }
 
-DevicesHistory* wifiDevicesHistory = NULL;
-
 
 uint8_t probeBytes[] = {
   64,
@@ -80,8 +78,12 @@ wifi_ieee80211_probe_t* probeData = (wifi_ieee80211_probe_t*)&probeBytes;
 
 int previousChannel = 0;
 
+WifiTaskParameter* wifiTaskParameter = NULL;
+
 void wifiTask(void* parameter) {
-  wifiDevicesHistory = (DevicesHistory*)parameter;
+  wifiTaskParameter = (WifiTaskParameter*)parameter;
+
+  DevicesHistory* wifiDevicesHistory = wifiTaskParameter->devicesHistory;
 
   int set_channel = 0;
 
@@ -170,6 +172,83 @@ void beaconSnifferCallback(void* buf, wifi_promiscuous_pkt_type_t type)
     }
   }
 
+  uint8_t receiver[6];
+  uint8_t sender[6];
+  bool receiverBroadcast = true;
+  bool senderBroadcast = true;
+  for(int i = 0; i < 6; i++) {
+    receiver[i] = snifferPacket->payload[4 + i];
+    sender[i]   = snifferPacket->payload[10 + i];
+
+    if(receiver[i] != 0xff) {
+      receiverBroadcast = false;
+    }
+    if(sender[i] != 0xff) {
+      senderBroadcast = false;
+    }
+  }
+
+  if(wifiTaskParameter->devicesHistory->apAddressBlank()) {
+    //Serial.println("AP Address is blank");
+  } else if(wifiTaskParameter->devicesHistory->isApAddress(sender, receiver) && (receiverBroadcast || senderBroadcast)) {
+    //Serial.println("Is AP Broadcast");
+  } else if(wifiTaskParameter->devicesHistory->isApAddress(sender, receiver)) {
+//    Serial.println("Is AP Address");
+//    Serial.print("Got packet: ");
+//    Serial.print(receiver_address);
+//    Serial.print(" - ");
+//    Serial.println(sender_address);
+//    Serial.println("");
+
+    if ( xSemaphoreTake(wifiTaskParameter->apDevicesHistory->xDevicesSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {        
+        char deviceName[200];
+        bzero(deviceName, 200);
+        uint8_t deviceAddress[6];
+        
+        if(wifiTaskParameter->devicesHistory->isApAddress(sender, NULL)) {
+          char receiver_address[] = "00:00:00:00:00:00";
+          getMAC(receiver_address, snifferPacket->payload, 4);
+          sprintf(deviceName, "%s", receiver_address);
+          for(int i = 0; i < 6; i++) {
+            deviceAddress[i] = receiver[i];
+          }
+        } else {
+          char sender_address[] = "00:00:00:00:00:00";
+          getMAC(sender_address, snifferPacket->payload, 10);
+          sprintf(deviceName, "%s", sender_address);
+          for(int i = 0; i < 6; i++) {
+            deviceAddress[i] = sender[i];
+          }
+        }
+        
+        int foundDeviceIndex = -1;
+        for(int deviceIndex = 0; deviceIndex < wifiTaskParameter->apDevicesHistory->getCount(); deviceIndex++) {
+           if(wifiTaskParameter->apDevicesHistory->history[deviceIndex].checkAddress(deviceAddress)) {
+                foundDeviceIndex = deviceIndex;
+                break;
+           }
+        }
+
+        if(foundDeviceIndex == -1) {
+          wifiTaskParameter->apDevicesHistory->incrementCount();
+          foundDeviceIndex = wifiTaskParameter->apDevicesHistory->getCount() - 1;
+
+          wifiTaskParameter->apDevicesHistory->history[foundDeviceIndex].setAddress(deviceAddress);
+          wifiTaskParameter->apDevicesHistory->history[foundDeviceIndex].setName(deviceName);
+        }
+
+        int rssi = snifferPacket->rx_ctrl.rssi;
+        int channel = snifferPacket->rx_ctrl.channel;
+        wifiTaskParameter->apDevicesHistory->history[foundDeviceIndex].setSignalLevel(rssi);
+        wifiTaskParameter->apDevicesHistory->history[foundDeviceIndex].setChannel(channel);
+        
+        xSemaphoreGive( wifiTaskParameter->apDevicesHistory->xDevicesSemaphore );
+    }
+  } else {
+    //Serial.println("Is Not AP Address");
+  }
+
+/*
   if(ffCount != 6) {
     char receiver_address[] = "00:00:00:00:00:00";
     char sender_address[] = "00:00:00:00:00:00";
@@ -179,30 +258,57 @@ void beaconSnifferCallback(void* buf, wifi_promiscuous_pkt_type_t type)
     Serial.print(receiver_address);
     Serial.print(" - ");
     Serial.println(sender_address);
+    Serial.println("");
   }
+*/
   
   if (type == WIFI_PKT_MGMT)
   {
-    len -= 4;
     int fctl = ntohs(frameControl->fctl);
     const wifi_ieee80211_packet_t *ipkt = (wifi_ieee80211_packet_t *)snifferPacket->payload;
     const WifiMgmtHdr *hdr = &ipkt->hdr;
 
-    
-
     if(fctl == 0x4000) {
+      Serial.println("");
       Serial.println("!!!! GOT PROBE PACKET !!!!");
 
-      int payloadOffset = 0;
+      char deviceName[100];
+
+      int offset = 4;
+      
+      char receiver_address[] = "00:00:00:00:00:00";
+      getMAC(receiver_address, snifferPacket->payload, offset);
+      sprintf(deviceName, "%s", receiver_address);
+      Serial.println(receiver_address);
+
+      offset += 6;
+      
+      char sender_address[] = "00:00:00:00:00:00";
+      getMAC(sender_address, snifferPacket->payload, offset);
+      sprintf(deviceName, "%s", sender_address);
+      Serial.println(sender_address);
+
+      offset += 6;
+
+      // BSSID
+      offset += 6;
+      // fragment
+      offset++;
+      // seq number
+      offset++;
+
+      len -= offset;
+      int payloadOffset = offset;
+      
       while(len > 0) {
         uint8_t tagType = snifferPacket->payload[payloadOffset];
         uint8_t tagLength = snifferPacket->payload[payloadOffset + 1];
         payloadOffset += 2;
         len -= 2;
 
-        char pBuf[100];
-        sprintf(pBuf, "%d:%d", tagType, tagLength);
-        Serial.println(pBuf);
+//        char pBuf[100];
+//        sprintf(pBuf, "%d:%d", tagType, tagLength);
+//        Serial.println(pBuf);
 
         if(tagType == 0) {
           for (int i = 0; i < tagLength; i++)
@@ -252,7 +358,7 @@ void beaconSnifferCallback(void* buf, wifi_promiscuous_pkt_type_t type)
 //      Serial.print(" ");
 //      Serial.println();
 
-      if ( xSemaphoreTake( wifiDevicesHistory->xDevicesSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {
+      if ( xSemaphoreTake(wifiTaskParameter->devicesHistory->xDevicesSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {
 /*
             //char deviceAddress[200];
             //char bssid[100];
@@ -277,31 +383,38 @@ void beaconSnifferCallback(void* buf, wifi_promiscuous_pkt_type_t type)
                         
 */
 
-        char deviceAddress[200];
-        bzero(deviceAddress, 200);
-        sprintf(deviceAddress, "%s\n%s", display_string.c_str(), deviceAddressBSSID);
+        uint8_t deviceAddress[6];
+        for(int i = 0; i < 6; i++) {
+          deviceAddress[i] = snifferPacket->payload[i + 10];
+        }
+        
+        char deviceName[200];
+        bzero(deviceName, 200);
+        sprintf(deviceName, "%s\n%s", display_string.c_str(), deviceAddressBSSID);
         
         int foundDeviceIndex = -1;
-        for(int deviceIndex = 0; deviceIndex < wifiDevicesHistory->getCount(); deviceIndex++) {
-           if(wifiDevicesHistory->history[deviceIndex].checkName(deviceAddress)) {
+        for(int deviceIndex = 0; deviceIndex < wifiTaskParameter->devicesHistory->getCount(); deviceIndex++) {
+//           if(wifiTaskParameter->devicesHistory->history[deviceIndex].checkName(deviceName)) {
+           if(wifiTaskParameter->devicesHistory->history[deviceIndex].checkAddress(deviceAddress)) {
                 foundDeviceIndex = deviceIndex;
                 break;
            }
         }
 
         if(foundDeviceIndex == -1) {
-          wifiDevicesHistory->incrementCount();
-          foundDeviceIndex = wifiDevicesHistory->getCount() - 1;
+          wifiTaskParameter->devicesHistory->incrementCount();
+          foundDeviceIndex = wifiTaskParameter->devicesHistory->getCount() - 1;
 
-          wifiDevicesHistory->history[foundDeviceIndex].setName(deviceAddress);
+          wifiTaskParameter->devicesHistory->history[foundDeviceIndex].setAddress(deviceAddress);
+          wifiTaskParameter->devicesHistory->history[foundDeviceIndex].setName(deviceName);
         }
 
         int rssi = snifferPacket->rx_ctrl.rssi;
         int channel = snifferPacket->rx_ctrl.channel;
-        wifiDevicesHistory->history[foundDeviceIndex].setSignalLevel(rssi);
-        wifiDevicesHistory->history[foundDeviceIndex].setChannel(channel);
+        wifiTaskParameter->devicesHistory->history[foundDeviceIndex].setSignalLevel(rssi);
+        wifiTaskParameter->devicesHistory->history[foundDeviceIndex].setChannel(channel);
         
-        xSemaphoreGive( wifiDevicesHistory->xDevicesSemaphore );
+        xSemaphoreGive( wifiTaskParameter->devicesHistory->xDevicesSemaphore );
       }
     }
   }

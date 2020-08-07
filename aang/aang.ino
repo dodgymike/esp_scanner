@@ -18,23 +18,31 @@
 
 TFT_eSPI tft = TFT_eSPI();       // Invoke custom library
 
-int deviceOffset;
 ButtonState* buttonState = NULL;
-DevicesHistory* devicesHistory = NULL;
+
+int deviceOffset = 0;
+int apDeviceOffset = 0;
+
+struct WifiTaskParameter* histories;
+
 unsigned long previousTime = 0;
 unsigned long previousBlankTime = 0;
 
-
 #define MODE_SHOW_DEVICES (0)
 #define MODE_SHOW_DEVICE (1)
-
+#define MODE_SHOW_AP_DEVICES (2)
+#define MODE_SHOW_AP_DEVICE (3)
 
 unsigned int mode = MODE_SHOW_DEVICES;
 
 char displayDeviceOffset = 0;
+char apDisplayDeviceOffset = 0;
 
 TaskHandle_t xHandle = NULL;
 int previousScanMode = -1;
+
+void showDevices(DevicesHistory* devicesHistory);
+void showDevice(DevicesHistory* devicesHistory, int displayDeviceOffset);
 
 void setup()
 {   
@@ -50,7 +58,10 @@ void setup()
   Serial.println("BUTTON");
   buttonState = new ButtonState();
 
-  devicesHistory = new DevicesHistory();
+  histories = new WifiTaskParameter();
+  histories->apDevicesHistory = new DevicesHistory();
+  histories->devicesHistory = new DevicesHistory();
+
   deviceOffset = 0;
 
   Serial.println("Starting buttonTask");
@@ -85,15 +96,26 @@ void loop()
       
       displayDeviceOffset = deviceOffset;
 
-      devicesHistory->setWifiChannel(devicesHistory->history[displayDeviceOffset].getChannel());
+      histories->devicesHistory->setWifiChannel(histories->devicesHistory->history[deviceOffset].getChannel());
       
       tft.fillScreen(TFT_BLACK);
+    } else if(buttonState->pressed(ButtonState::left)) {
+      mode = MODE_SHOW_AP_DEVICES;
+
+      displayDeviceOffset = deviceOffset;
+
+      uint8_t apAddress[6];
+      histories->devicesHistory->history[deviceOffset].getAddress(apAddress);
+      histories->devicesHistory->setApAddress(apAddress);
+      histories->devicesHistory->setWifiChannel(histories->devicesHistory->history[deviceOffset].getChannel());
+
+      tft.fillScreen(TFT_BLACK);
     } else if(buttonState->pressed(ButtonState::a)) {
-      if(devicesHistory->getScanMode() != DEVICES_HISTORY_SCAN_MODE_WIFI) {
+      if(histories->devicesHistory->getScanMode() != DEVICES_HISTORY_SCAN_MODE_WIFI) {
         Serial.println("WIFI SCAN MODE");
-        devicesHistory->setScanMode(DEVICES_HISTORY_SCAN_MODE_WIFI);
+        histories->devicesHistory->setScanMode(DEVICES_HISTORY_SCAN_MODE_WIFI);
         if(xHandle != NULL) {
-          devicesHistory->clean();
+          histories->devicesHistory->clean();
           vTaskDelete( xHandle );
           //BLEDevice::deinit(true);
           BLEDevice::deinit(false);
@@ -104,18 +126,18 @@ void loop()
           wifiTask,
           "wifiTask",
           25000,
-          (void*)devicesHistory,
+          (void*)histories,
           2,
           &xHandle);
       }
     } else if(buttonState->pressed(ButtonState::b)) {
-      if(devicesHistory->getScanMode() != DEVICES_HISTORY_SCAN_MODE_BTLE) {
+      if(histories->devicesHistory->getScanMode() != DEVICES_HISTORY_SCAN_MODE_BTLE) {
         Serial.println("BTLE SCAN MODE");
-        devicesHistory->setScanMode(DEVICES_HISTORY_SCAN_MODE_BTLE);
+        histories->devicesHistory->setScanMode(DEVICES_HISTORY_SCAN_MODE_BTLE);
 
         if(xHandle != NULL) {
           Serial.println("DELETING TASK");
-          devicesHistory->clean();
+          histories->devicesHistory->clean();
           vTaskDelete( xHandle );
           esp_wifi_stop();
 
@@ -130,7 +152,7 @@ void loop()
           bluetoothTask,
           "bluetoothTask",
           25000,
-          (void*)devicesHistory,
+          (void*)histories->devicesHistory,
           2,
           &xHandle);
       }
@@ -143,29 +165,88 @@ void loop()
 
     if(buttonState->pressed(ButtonState::left)) {
       mode = MODE_SHOW_DEVICES;
-      devicesHistory->setWifiChannel(0);
+      histories->devicesHistory->setWifiChannel(0);
       
       tft.fillScreen(TFT_BLACK);
     } else if(buttonState->pressed(ButtonState::up)) {
-      if ( xSemaphoreTake(devicesHistory->xDevicesSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {
-        devicesHistory->history[displayDeviceOffset].switchBuffer();
+      if ( xSemaphoreTake(histories->devicesHistory->xDevicesSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {
+        histories->devicesHistory->history[displayDeviceOffset].switchBuffer();
 
-        devicesHistory->phase++;
-        if(devicesHistory->phase >= LOCATION_HISTORY_BUFFERS) {
-          devicesHistory->phase = 0;
+        histories->devicesHistory->phase++;
+        if(histories->devicesHistory->phase >= LOCATION_HISTORY_BUFFERS) {
+          histories->devicesHistory->phase = 0;
         }
 
         tft.fillScreen(TFT_BLACK);
 
-        xSemaphoreGive(devicesHistory->xDevicesSemaphore);
+        xSemaphoreGive(histories->devicesHistory->xDevicesSemaphore);
+      }
+    }
+  } else if(mode == MODE_SHOW_AP_DEVICES) {
+    if(currentTime - previousBlankTime > 1000) {
+      //tft.fillScreen(TFT_BLACK);
+      previousBlankTime = currentTime;
+    }
+
+    if(buttonState->pressed(ButtonState::up)) {
+      apDeviceOffset--;
+      tft.fillScreen(TFT_BLACK);
+    } else if(buttonState->pressed(ButtonState::down)) {
+      apDeviceOffset++;
+      tft.fillScreen(TFT_BLACK);
+    } else if(buttonState->pressed(ButtonState::right)) {
+      mode = MODE_SHOW_AP_DEVICE;
+      
+      apDisplayDeviceOffset = apDeviceOffset;
+
+      histories->devicesHistory->setWifiChannel(histories->devicesHistory->history[apDeviceOffset].getChannel());
+      
+      tft.fillScreen(TFT_BLACK);
+    } else if(buttonState->pressed(ButtonState::left)) {
+      mode = MODE_SHOW_DEVICES;
+
+      uint8_t apAddress[6];
+      bzero(apAddress, 6);
+      histories->devicesHistory->setApAddress(apAddress);
+      histories->apDevicesHistory->clean();
+
+      tft.fillScreen(TFT_BLACK);
+    }
+  } else if(mode == MODE_SHOW_AP_DEVICE) {
+    if(currentTime - previousBlankTime > 1000) {
+      //tft.fillScreen(TFT_BLACK);
+      previousBlankTime = currentTime;
+    }
+
+    if(buttonState->pressed(ButtonState::left)) {
+      mode = MODE_SHOW_AP_DEVICES;
+      histories->apDevicesHistory->setWifiChannel(0);
+      
+      tft.fillScreen(TFT_BLACK);
+    } else if(buttonState->pressed(ButtonState::up)) {
+      if ( xSemaphoreTake(histories->apDevicesHistory->xDevicesSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {
+        histories->apDevicesHistory->history[displayDeviceOffset].switchBuffer();
+
+        histories->apDevicesHistory->phase++;
+        if(histories->apDevicesHistory->phase >= LOCATION_HISTORY_BUFFERS) {
+          histories->apDevicesHistory->phase = 0;
+        }
+
+        tft.fillScreen(TFT_BLACK);
+
+        xSemaphoreGive(histories->apDevicesHistory->xDevicesSemaphore);
       }
     }
   }
 
   if(mode == MODE_SHOW_DEVICES) {
-    showDevices();
+    deviceOffset = showDevices(histories->devicesHistory, deviceOffset);
   } else if(mode == MODE_SHOW_DEVICE) {
-    showDevice(devicesHistory, displayDeviceOffset);
+    showDevice(histories->devicesHistory, displayDeviceOffset);
+  } else if(mode == MODE_SHOW_AP_DEVICES) {
+    apDeviceOffset = showDevices(histories->apDevicesHistory, apDeviceOffset);
+  } else if(mode == MODE_SHOW_AP_DEVICE) {
+    showDevice(histories->apDevicesHistory, apDisplayDeviceOffset);
   }
 }
 
@@ -388,19 +469,19 @@ void drawDeviceHistory(int y, bool isSelectedDevice, int signalLevels[], int sig
   }  
 }
 
-void showDevices() {
-  if(deviceOffset < 0) {
-    deviceOffset = devicesHistory->getCount() - 1;
-  } else if(deviceOffset >= devicesHistory->getCount()) {
-    deviceOffset = 0;
+int showDevices(DevicesHistory* devicesHistory, int offset) {
+  if(offset < 0) {
+    offset = devicesHistory->getCount() - 1;
+  } else if(offset >= devicesHistory->getCount()) {
+    offset = 0;
   }
   
   int displayDeviceStartIndex = 0;
   int displayDeviceEndIndex = devicesHistory->getCount();
   if(displayDeviceEndIndex > 11) {
-    if(deviceOffset >= 5) {
-      displayDeviceStartIndex = deviceOffset - 5;
-      displayDeviceEndIndex = deviceOffset + 5 + 1;
+    if(offset >= 5) {
+      displayDeviceStartIndex = offset - 5;
+      displayDeviceEndIndex = offset + 5 + 1;
     } else {
       displayDeviceStartIndex = 0;
       displayDeviceEndIndex = 11;
@@ -414,6 +495,8 @@ void showDevices() {
   for(int foundDeviceIndex = displayDeviceStartIndex; foundDeviceIndex < displayDeviceEndIndex; foundDeviceIndex++) {
     int y = GRAPH_HEIGHT + (GRAPH_HEIGHT * (foundDeviceIndex - displayDeviceStartIndex));
 
-    drawDeviceHistory(y, (deviceOffset == foundDeviceIndex), &(devicesHistory->history[foundDeviceIndex]), devicesHistory->xDevicesSemaphore);
+    drawDeviceHistory(y, (offset == foundDeviceIndex), &(devicesHistory->history[foundDeviceIndex]), devicesHistory->xDevicesSemaphore);
   }
+
+  return offset;
 }

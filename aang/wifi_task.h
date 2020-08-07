@@ -11,6 +11,11 @@
 
 void wifiTask(void* parameter);
 
+struct WifiTaskParameter {
+  DevicesHistory* devicesHistory;
+  DevicesHistory* apDevicesHistory;
+};
+
 typedef struct
 {   
   int16_t fctl;

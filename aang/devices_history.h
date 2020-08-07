@@ -8,12 +8,15 @@
 #define DEVICE_HISTORY_BUFFERS (1)
 
 class DeviceHistory {
+  private:
     int signalLevels[DEVICE_HISTORY_BUFFERS][DEVICE_HISTORY_SIZE];
     int signalLevelsIndex[DEVICE_HISTORY_BUFFERS];
     int signalLevelBufferIndex;
     int channel;
 
     SemaphoreHandle_t xDeviceSemaphore;
+
+    uint8_t address[6];
   public:
     char name[DEVICE_ADDRESS_SIZE];
 
@@ -31,9 +34,15 @@ class DeviceHistory {
 
     DeviceHistory();
 
+    bool checkAddress(const uint8_t* addressIn);
+    void setAddress(const uint8_t* addressIn);
+    void getAddress(uint8_t* addressOut);
+    
     void setName(const char* name);
     bool checkName(const char* nameToCheck);
     void copySignalLevels(int signalLevels[]);
+
+    void clean();
 };
 
 
@@ -49,10 +58,9 @@ class DevicesHistory {
     SemaphoreHandle_t xCountSemaphore;
     int wifiChannel;
     int scanMode;
-    char apAddress[DEVICE_ADDRESS_SIZE];
+    uint8_t apAddress[6];
       
-  public:
-       
+  public: 
     SemaphoreHandle_t xDevicesSemaphore;
     DeviceHistory history[100];
 
@@ -71,8 +79,10 @@ class DevicesHistory {
     void setScanMode(int scanModeIn);
     int getScanMode();
 
-    void setApAddress(char* apAddress);
-    const char* getApAddress();
+    bool isApAddress(const uint8_t* sender, const uint8_t* receiver);
+    bool apAddressBlank();
+    void setApAddress(const uint8_t* apAddress);
+    void getApAddress(uint8_t* apAddress);
 
     DevicesHistory();
 };

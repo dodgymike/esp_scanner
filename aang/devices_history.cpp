@@ -20,7 +20,15 @@ void DeviceHistory::switchBuffer() {
   }
 
 /*
+  for(int i = 0; i < DEVICE_HISTORY_SIZE; i++) {
+    signalLevels[signalLevelBufferIndex][i] = -100;
+  }
+  signalLevelsIndex[signalLevelBufferIndex] = 0;
 */
+  clean();
+}
+
+void DeviceHistory::clean() {
   for(int i = 0; i < DEVICE_HISTORY_SIZE; i++) {
     signalLevels[signalLevelBufferIndex][i] = -100;
   }
@@ -116,6 +124,10 @@ void DevicesHistory::clean() {
   
     count = 0;
 
+    for(int deviceIndex = 0; deviceIndex < 100; deviceIndex++) {
+      history[deviceIndex].clean();
+    }
+
     xSemaphoreGive(xCountSemaphore);
   }      
 }
@@ -161,27 +173,96 @@ int DevicesHistory::getScanMode() {
   return rv;
 }
 
+bool DeviceHistory::checkAddress(const uint8_t* addressIn) {
+ //if (xSemaphoreTake(xDeviceSemaphore, ( TickType_t ) 5 ) == pdTRUE) {  
+    for(int i = 0; i < 6; i++) {
+      if(address[i] != addressIn[i]) {
+        return false;
+      }
+    }
+    
+    //xSemaphoreGive(xDeviceSemaphore);
 
-void DevicesHistory::setApAddress(char* apAddressIn) {
+    return true;
+  //} 
+}
+
+void DeviceHistory::setAddress(const uint8_t* addressIn) {
+  //if (xSemaphoreTake(xDeviceSemaphore, ( TickType_t ) 5 ) == pdTRUE) {  
+    for(int i = 0; i < 6; i++) {
+      address[i] = addressIn[i];
+    }
+    
+ //   xSemaphoreGive(xDeviceSemaphore);
+  //}      
+}
+
+void DeviceHistory::getAddress(uint8_t* addressOut) {
+  //if (xSemaphoreTake(xDeviceSemaphore, ( TickType_t ) 5 ) == pdTRUE) {  
+    for(int i = 0; i < 6; i++) {
+      addressOut[i] = address[i];
+    }
+    
+  //  xSemaphoreGive(xDeviceSemaphore);
+  //}      
+}
+
+
+void DevicesHistory::setApAddress(const uint8_t* apAddressIn) {
   if (xSemaphoreTake(xDevicesSemaphore, ( TickType_t ) 5 ) == pdTRUE) {  
-    strncpy(apAddress, apAddressIn, DEVICE_ADDRESS_SIZE - 1);
-    apAddress[DEVICE_ADDRESS_SIZE - 1] = 0;
-
+    for(int i = 0; i < 6; i++) {
+      apAddress[i] = apAddressIn[i];
+    }
+    
     xSemaphoreGive(xDevicesSemaphore);
   }      
 }
 
-const char* DevicesHistory::getApAddress() {
-  /*
+void DevicesHistory::getApAddress(uint8_t* apAddressOut) {
   if (xSemaphoreTake(xDevicesSemaphore, ( TickType_t ) 5 ) == pdTRUE) {  
+    for(int i = 0; i < 6; i++) {
+      apAddressOut[i] = apAddress[i];
+    }
     
     xSemaphoreGive(xDevicesSemaphore);
-  } 
-  */
-
-  return apAddress;
+  }      
 }
 
+bool DevicesHistory::isApAddress(const uint8_t* sender, const uint8_t* receiver) {
+  bool senderIsAp = (sender != NULL);
+  bool receiverIsAp = (receiver != NULL);
+  
+  if (xSemaphoreTake(xDevicesSemaphore, ( TickType_t ) 5 ) == pdTRUE) {  
+    for(int i = 0; i < 6; i++) {
+      if((sender != NULL) && (sender[i] != apAddress[i])) {
+        senderIsAp = false;
+      }
+      if((receiver != NULL) && (receiver[i] != apAddress[i])) {
+        receiverIsAp = false;
+      }
+    }
+    
+    xSemaphoreGive(xDevicesSemaphore);
+  }      
+
+  return (senderIsAp || receiverIsAp);
+}
+
+bool DevicesHistory::apAddressBlank() {
+  bool rv = true;
+  
+  if (xSemaphoreTake(xDevicesSemaphore, ( TickType_t ) 5 ) == pdTRUE) {  
+    for(int i = 0; i < 6; i++) {
+      if(apAddress[i] != 0) {
+        rv = false;
+      }
+    }
+    
+    xSemaphoreGive(xDevicesSemaphore);
+  }      
+
+  return rv;
+}
 
 DevicesHistory::DevicesHistory()
   : count(0), wifiChannel(0), xDevicesSemaphore(xSemaphoreCreateMutex()), xCountSemaphore(xSemaphoreCreateMutex()), scanMode(DEVICES_HISTORY_SCAN_MODE_NONE)
@@ -198,6 +279,10 @@ DevicesHistory::DevicesHistory()
     }
   }
     
+  for(int i = 0; i < 6; i++) {
+    apAddress[i] = 0;
+  }
+
   xSemaphoreGive(xDevicesSemaphore);
   xSemaphoreGive(xCountSemaphore);
 }
