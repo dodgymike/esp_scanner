@@ -135,12 +135,13 @@ void loop()
       histories->devicesHistory->setWifiChannel(histories->devicesHistory->history[deviceOffset].getChannel());
 
       tft.fillScreen(TFT_BLACK);
-//    } else if(buttonState->pressed(ButtonState::leftS)) {
-//      mode = MODE_SHOW_PROBE_DEVICES;
-//
-//      histories->devicesHistory->setWifiChannel(1);
-//
-//      tft.fillScreen(TFT_BLACK);
+    } else if(buttonState->pressed(ButtonState::leftS)) {
+        Serial.println("PROBE LIST");
+      mode = MODE_SHOW_PROBE_DEVICES;
+
+      histories->devicesHistory->setWifiChannel(1);
+
+      tft.fillScreen(TFT_BLACK);
     } else if(buttonState->pressed(ButtonState::a)) {
       if(histories->devicesHistory->getScanMode() != DEVICES_HISTORY_SCAN_MODE_WIFI) {
         Serial.println("WIFI SCAN MODE");
@@ -289,6 +290,9 @@ void loop()
       }
     }
   } else if(mode == MODE_SHOW_PROBE_DEVICES) {
+    tft.setCursor(0, 0);
+    tft.println("Probe List");
+    
     if(currentTime - previousBlankTime > 1000) {
       //tft.fillScreen(TFT_BLACK);
       previousBlankTime = currentTime;
@@ -301,9 +305,9 @@ void loop()
       probeDeviceOffset++;
       tft.fillScreen(TFT_BLACK);
     } else if(buttonState->pressed(ButtonState::right)) {
-//      mode = MODE_SHOW_AP_DEVICE;
-//      
-//      apDisplayDeviceOffset = apDeviceOffset;
+      mode = MODE_SHOW_PROBE_DEVICE;
+      
+      probeDisplayDeviceOffset = probeDeviceOffset;
 //
 //      histories->devicesHistory->setWifiChannel(histories->devicesHistory->history[apDeviceOffset].getChannel());
       
@@ -313,6 +317,23 @@ void loop()
 
       histories->probeDevicesHistory->clean();
 
+      tft.fillScreen(TFT_BLACK);
+    }
+  } else if(mode == MODE_SHOW_PROBE_DEVICE) {
+    tft.setCursor(0, 0);
+    tft.println("Probe Device");
+
+    if(currentTime - previousBlankTime > 1000) {
+      //tft.fillScreen(TFT_BLACK);
+      previousBlankTime = currentTime;
+    }
+
+    if(buttonState->pressed(ButtonState::left)) {
+      mode = MODE_SHOW_PROBE_DEVICES;
+//      histories->apDevicesHistory->setWifiChannel(0);
+//      int apChannel = histories->apDevicesHistory->history[apDeviceOffset].getChannel();
+//      histories->apDevicesHistory->setWifiChannel(apChannel);
+      
       tft.fillScreen(TFT_BLACK);
     }
   }
@@ -326,7 +347,9 @@ void loop()
   } else if(mode == MODE_SHOW_AP_DEVICE) {
     showDevice(histories->apDevicesHistory, apDisplayDeviceOffset);
   } else if(mode == MODE_SHOW_PROBE_DEVICES) {
-    apDeviceOffset = showDevices(histories->probeDevicesHistory, apDeviceOffset);
+    probeDeviceOffset = showDevices(histories->probeDevicesHistory, probeDeviceOffset);
+  } else if(mode == MODE_SHOW_PROBE_DEVICE) {
+    showDevice(histories->probeDevicesHistory, probeDeviceOffset);
   }
 }
 
