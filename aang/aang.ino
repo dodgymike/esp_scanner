@@ -22,21 +22,25 @@ ButtonState* buttonState = NULL;
 
 int deviceOffset = 0;
 int apDeviceOffset = 0;
+int probeDeviceOffset = 0;
 
 struct WifiTaskParameter* histories;
 
 unsigned long previousTime = 0;
 unsigned long previousBlankTime = 0;
 
-#define MODE_SHOW_DEVICES (0)
-#define MODE_SHOW_DEVICE (1)
-#define MODE_SHOW_AP_DEVICES (2)
-#define MODE_SHOW_AP_DEVICE (3)
+#define MODE_SHOW_DEVICES       (0)
+#define MODE_SHOW_DEVICE        (1)
+#define MODE_SHOW_AP_DEVICES    (2)
+#define MODE_SHOW_AP_DEVICE     (3)
+#define MODE_SHOW_PROBE_DEVICES (4)
+#define MODE_SHOW_PROBE_DEVICE  (5)
 
 unsigned int mode = MODE_SHOW_DEVICES;
 
-char displayDeviceOffset = 0;
-char apDisplayDeviceOffset = 0;
+int displayDeviceOffset = 0;
+int apDisplayDeviceOffset = 0;
+int probeDisplayDeviceOffset = 0;
 
 TaskHandle_t xHandle = NULL;
 int previousScanMode = -1;
@@ -61,6 +65,7 @@ void setup()
   histories = new WifiTaskParameter();
   histories->apDevicesHistory = new DevicesHistory();
   histories->devicesHistory = new DevicesHistory();
+  histories->probeDevicesHistory = new DevicesHistory();
 
   deviceOffset = 0;
 
@@ -84,12 +89,32 @@ void loop()
 
   previousTime = currentTime;
 
+  tft.setCursor(200, 0);
+  if(histories->devicesHistory->getScanMode() == DEVICES_HISTORY_SCAN_MODE_WIFI) {
+    tft.println("Wifi");    
+  } else if(histories->devicesHistory->getScanMode() == DEVICES_HISTORY_SCAN_MODE_BTLE) {
+    tft.println("BTLE");
+  } else {
+    tft.println("None");
+  }
+
   if(mode == MODE_SHOW_DEVICES) {
+    tft.setCursor(0, 0);
+    tft.println("AP List");
+    
     if(buttonState->pressed(ButtonState::up)) {
-      deviceOffset--;
+      if(histories->devicesHistory->getCount() == 0) {
+        deviceOffset = 0;
+      } else {
+        deviceOffset--;
+      }
       tft.fillScreen(TFT_BLACK);
     } else if(buttonState->pressed(ButtonState::down)) {
-      deviceOffset++;
+      if(histories->devicesHistory->getCount() == 0) {
+        deviceOffset = 0;
+      } else {
+        deviceOffset++;
+      }
       tft.fillScreen(TFT_BLACK);
     } else if(buttonState->pressed(ButtonState::right)) {
       mode = MODE_SHOW_DEVICE;
@@ -110,6 +135,12 @@ void loop()
       histories->devicesHistory->setWifiChannel(histories->devicesHistory->history[deviceOffset].getChannel());
 
       tft.fillScreen(TFT_BLACK);
+//    } else if(buttonState->pressed(ButtonState::leftS)) {
+//      mode = MODE_SHOW_PROBE_DEVICES;
+//
+//      histories->devicesHistory->setWifiChannel(1);
+//
+//      tft.fillScreen(TFT_BLACK);
     } else if(buttonState->pressed(ButtonState::a)) {
       if(histories->devicesHistory->getScanMode() != DEVICES_HISTORY_SCAN_MODE_WIFI) {
         Serial.println("WIFI SCAN MODE");
@@ -125,7 +156,7 @@ void loop()
         xTaskCreate(
           wifiTask,
           "wifiTask",
-          25000,
+          30000,
           (void*)histories,
           2,
           &xHandle);
@@ -158,6 +189,9 @@ void loop()
       }
     }
   } else if(mode == MODE_SHOW_DEVICE) {
+    tft.setCursor(0, 0);
+    tft.println("AP");
+    
     if(currentTime - previousBlankTime > 1000) {
       //tft.fillScreen(TFT_BLACK);
       previousBlankTime = currentTime;
@@ -183,23 +217,35 @@ void loop()
       }
     }
   } else if(mode == MODE_SHOW_AP_DEVICES) {
+    tft.setCursor(0, 0);
+    tft.println("AP Devices");
+
     if(currentTime - previousBlankTime > 1000) {
       //tft.fillScreen(TFT_BLACK);
       previousBlankTime = currentTime;
     }
 
     if(buttonState->pressed(ButtonState::up)) {
-      apDeviceOffset--;
+      if(histories->apDevicesHistory->getCount() == 0) {
+        apDeviceOffset = 0;
+      } else {
+        apDeviceOffset--;
+      }
       tft.fillScreen(TFT_BLACK);
     } else if(buttonState->pressed(ButtonState::down)) {
-      apDeviceOffset++;
+      if(histories->apDevicesHistory->getCount() == 0) {
+        apDeviceOffset = 0;
+      } else {
+        apDeviceOffset++;
+      }
       tft.fillScreen(TFT_BLACK);
     } else if(buttonState->pressed(ButtonState::right)) {
       mode = MODE_SHOW_AP_DEVICE;
       
       apDisplayDeviceOffset = apDeviceOffset;
 
-      histories->devicesHistory->setWifiChannel(histories->devicesHistory->history[apDeviceOffset].getChannel());
+      int apChannel = histories->apDevicesHistory->history[apDeviceOffset].getChannel();
+      histories->apDevicesHistory->setWifiChannel(apChannel);
       
       tft.fillScreen(TFT_BLACK);
     } else if(buttonState->pressed(ButtonState::left)) {
@@ -213,6 +259,9 @@ void loop()
       tft.fillScreen(TFT_BLACK);
     }
   } else if(mode == MODE_SHOW_AP_DEVICE) {
+    tft.setCursor(0, 0);
+    tft.println("AP Device");
+
     if(currentTime - previousBlankTime > 1000) {
       //tft.fillScreen(TFT_BLACK);
       previousBlankTime = currentTime;
@@ -220,7 +269,9 @@ void loop()
 
     if(buttonState->pressed(ButtonState::left)) {
       mode = MODE_SHOW_AP_DEVICES;
-      histories->apDevicesHistory->setWifiChannel(0);
+//      histories->apDevicesHistory->setWifiChannel(0);
+      int apChannel = histories->apDevicesHistory->history[apDeviceOffset].getChannel();
+      histories->apDevicesHistory->setWifiChannel(apChannel);
       
       tft.fillScreen(TFT_BLACK);
     } else if(buttonState->pressed(ButtonState::up)) {
@@ -237,6 +288,33 @@ void loop()
         xSemaphoreGive(histories->apDevicesHistory->xDevicesSemaphore);
       }
     }
+  } else if(mode == MODE_SHOW_PROBE_DEVICES) {
+    if(currentTime - previousBlankTime > 1000) {
+      //tft.fillScreen(TFT_BLACK);
+      previousBlankTime = currentTime;
+    }
+
+    if(buttonState->pressed(ButtonState::up)) {
+      probeDeviceOffset--;
+      tft.fillScreen(TFT_BLACK);
+    } else if(buttonState->pressed(ButtonState::down)) {
+      probeDeviceOffset++;
+      tft.fillScreen(TFT_BLACK);
+    } else if(buttonState->pressed(ButtonState::right)) {
+//      mode = MODE_SHOW_AP_DEVICE;
+//      
+//      apDisplayDeviceOffset = apDeviceOffset;
+//
+//      histories->devicesHistory->setWifiChannel(histories->devicesHistory->history[apDeviceOffset].getChannel());
+      
+      tft.fillScreen(TFT_BLACK);
+    } else if(buttonState->pressed(ButtonState::left)) {
+      mode = MODE_SHOW_DEVICES;
+
+      histories->probeDevicesHistory->clean();
+
+      tft.fillScreen(TFT_BLACK);
+    }
   }
 
   if(mode == MODE_SHOW_DEVICES) {
@@ -247,6 +325,8 @@ void loop()
     apDeviceOffset = showDevices(histories->apDevicesHistory, apDeviceOffset);
   } else if(mode == MODE_SHOW_AP_DEVICE) {
     showDevice(histories->apDevicesHistory, apDisplayDeviceOffset);
+  } else if(mode == MODE_SHOW_PROBE_DEVICES) {
+    apDeviceOffset = showDevices(histories->probeDevicesHistory, apDeviceOffset);
   }
 }
 
@@ -475,9 +555,17 @@ int showDevices(DevicesHistory* devicesHistory, int offset) {
   } else if(offset >= devicesHistory->getCount()) {
     offset = 0;
   }
-  
+
+  if(devicesHistory->getCount() == 0) {
+    tft.setCursor(80, 100);
+    tft.println("No Devices Found");
+    return offset;
+  }
+
   int displayDeviceStartIndex = 0;
   int displayDeviceEndIndex = devicesHistory->getCount();
+
+  
   if(displayDeviceEndIndex > 11) {
     if(offset >= 5) {
       displayDeviceStartIndex = offset - 5;

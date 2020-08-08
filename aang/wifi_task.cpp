@@ -318,6 +318,36 @@ void beaconSnifferCallback(void* buf, wifi_promiscuous_pkt_type_t type)
           }
           if(tagLength > 0) {
             Serial.println(display_string.c_str());
+//
+//            if ( xSemaphoreTake(wifiTaskParameter->probeDevicesHistory->xDevicesSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {
+//              bzero(deviceName, 200);
+//              sprintf(deviceName, "%s\n%s", display_string.c_str(), sender_address);
+//              
+//              int foundDeviceIndex = -1;
+//              for(int deviceIndex = 0; deviceIndex < wifiTaskParameter->probeDevicesHistory->getCount(); deviceIndex++) {
+//                 if(wifiTaskParameter->probeDevicesHistory->history[deviceIndex].checkName(deviceName)) {
+//                      foundDeviceIndex = deviceIndex;
+//                      break;
+//                 }
+//              }
+//      
+//              if(foundDeviceIndex == -1) {
+//                wifiTaskParameter->probeDevicesHistory->incrementCount();
+//                foundDeviceIndex = wifiTaskParameter->probeDevicesHistory->getCount() - 1;
+//      
+//                wifiTaskParameter->probeDevicesHistory->history[foundDeviceIndex].setName(deviceName);
+//              }
+//      
+//              int rssi = snifferPacket->rx_ctrl.rssi;
+//              int channel = snifferPacket->rx_ctrl.channel;
+//              wifiTaskParameter->probeDevicesHistory->history[foundDeviceIndex].setSignalLevel(rssi);
+//              wifiTaskParameter->probeDevicesHistory->history[foundDeviceIndex].setChannel(channel);
+//              
+//              xSemaphoreGive( wifiTaskParameter->probeDevicesHistory->xDevicesSemaphore );
+//            }
+
+
+            
           }
         }
                 
@@ -358,31 +388,9 @@ void beaconSnifferCallback(void* buf, wifi_promiscuous_pkt_type_t type)
 //      Serial.print(" ");
 //      Serial.println();
 
-      if ( xSemaphoreTake(wifiTaskParameter->devicesHistory->xDevicesSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {
 /*
-            //char deviceAddress[200];
-            //char bssid[100];
-            char ssidBuffer[100];
-              
-            //bzero(deviceAddress, 200);
-            //bzero(bssid, 100);
-            bzero(ssidBuffer, 100);
-  
-            //WiFi.SSID(ssid);
-  
-  //          WiFi.BSSID(i).copy(bssid, 80);
-  //          WiFi.SSID(i).copy(ssid, 80);
-  
-  //          snprintf(deviceAddress, 80, "%x:%x:%x:%x:%x:%x\n%s", WiFi.BSSID(i)[0], WiFi.BSSID(i)[1], WiFi.BSSID(i)[2], WiFi.BSSID(i)[3], WiFi.BSSID(i)[4], WiFi.BSSID(i)[5], ssid);
-            //snprintf(deviceAddress, 80, "%s\n%s", WiFi.BSSIDstr(i), WiFi.SSID(i));
-            //snprintf(deviceAddress, 80, "%s", WiFi.SSID(i));
-  //          String ssid = WiFi.SSID(i);
-  //          //ssid.copy(ssidBuffer, 80);
-  //          
-  //          sprintf(deviceAddress, "%s\n%x:%x:%x:%x:%x:%x", ssid.c_str(), WiFi.BSSID(i)[0], WiFi.BSSID(i)[1], WiFi.BSSID(i)[2], WiFi.BSSID(i)[3], WiFi.BSSID(i)[4], WiFi.BSSID(i)[5]);
-                        
 */
-
+      if ( xSemaphoreTake(wifiTaskParameter->devicesHistory->xDevicesSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {
         uint8_t deviceAddress[6];
         for(int i = 0; i < 6; i++) {
           deviceAddress[i] = snifferPacket->payload[i + 10];
@@ -407,6 +415,7 @@ void beaconSnifferCallback(void* buf, wifi_promiscuous_pkt_type_t type)
 
           wifiTaskParameter->devicesHistory->history[foundDeviceIndex].setAddress(deviceAddress);
           wifiTaskParameter->devicesHistory->history[foundDeviceIndex].setName(deviceName);
+          wifiTaskParameter->devicesHistory->history[foundDeviceIndex].clean();
         }
 
         int rssi = snifferPacket->rx_ctrl.rssi;
@@ -419,59 +428,3 @@ void beaconSnifferCallback(void* buf, wifi_promiscuous_pkt_type_t type)
     }
   }
 }
-
-/*
-  DevicesHistory* devicesHistory = (DevicesHistory*)parameter;
-  
-  int scanTime = 1; //In seconds
-  int scanIndex = 0;
-  
-  BLEDevice::init("");
-  BLEScan* pBLEScan = BLEDevice::getScan(); //create new scan
-  //pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
-  pBLEScan->setActiveScan(true); //active scan uses more power, but get results faster
-  pBLEScan->setInterval(100);
-  pBLEScan->setWindow(99);  // less or equal setInterval value
-
-  while(true) {
-    BLEScanResults foundDevices = pBLEScan->start(scanTime, false);
-
-    if ( xSemaphoreTake( devicesHistory->xDevicesSemaphore, ( TickType_t ) 5 ) == pdTRUE ) {
-      for(int i = 0; i < foundDevices.getCount(); i++) {
-          BLEAdvertisedDevice foundDevice = foundDevices.getDevice(i);
-
-          char deviceAddress[200];
-          bzero(deviceAddress, 200);
-          foundDevice.getAddress().toString().copy(deviceAddress, 180);
-          
-          int foundDeviceIndex = -1;
-          for(int deviceIndex = 0; deviceIndex < devicesHistory->getCount(); deviceIndex++) {
-             if(devicesHistory->history[deviceIndex].checkName(deviceAddress)) {
-                  foundDeviceIndex = deviceIndex;
-                  break;
-             }
-          }
-          
-          if(foundDeviceIndex == -1) {
-            devicesHistory->incrementCount();
-            foundDeviceIndex = devicesHistory->getCount() - 1;
-
-            if(foundDevice.haveName()) {
-//              strncpy(deviceAddress, foundDevice.getName(), 180);
-              bzero(deviceAddress, 180);
-              foundDevice.getName().copy(deviceAddress, 20);
-            }
-            
-            devicesHistory->history[foundDeviceIndex].setName(deviceAddress);
-          }
-          
-          devicesHistory->history[foundDeviceIndex].setSignalLevel(foundDevice.getRSSI());
-      }
-      
-      xSemaphoreGive( devicesHistory->xDevicesSemaphore );
-    }
-         
-    pBLEScan->clearResults();   // delete results fromBLEScan buffer to release memory
-    delay(100);
-  }
- */

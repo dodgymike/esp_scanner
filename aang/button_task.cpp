@@ -10,6 +10,7 @@ void buttonTask(void* parameter) {
   digitalWrite(BUTTON_GPIO_DOWN,  LOW); // DOWN
   digitalWrite(BUTTON_GPIO_RIGHT, LOW); // RIGHT
   digitalWrite(BUTTON_GPIO_LEFT,  LOW); // LEFT
+//  digitalWrite(BUTTON_GPIO_LEFT_SELECT,  LOW); // BUTTON_GPIO_LEFT_SELECT
 
   pinMode(BUTTON_GPIO_A,     INPUT); // UP
   pinMode(BUTTON_GPIO_B,     INPUT); // UP
@@ -17,6 +18,7 @@ void buttonTask(void* parameter) {
   pinMode(BUTTON_GPIO_DOWN,  INPUT); // DOWN
   pinMode(BUTTON_GPIO_RIGHT, INPUT); // UP
   pinMode(BUTTON_GPIO_LEFT,  INPUT); // DOWN
+//  pinMode(BUTTON_GPIO_LEFT_SELECT,  INPUT); // BUTTON_GPIO_LEFT_SELECT
 
   unsigned long startMillis = millis();
 
@@ -25,6 +27,7 @@ void buttonTask(void* parameter) {
   int upA    = 0;
   int downA  = 0;
   int leftA  = 0;
+  int leftS  = 0;
   int rightA = 0;
   int checkCount = 0;
 
@@ -34,6 +37,7 @@ void buttonTask(void* parameter) {
     upA    += touchRead(BUTTON_GPIO_UP);
     downA  += touchRead(BUTTON_GPIO_DOWN);
     leftA  += touchRead(BUTTON_GPIO_LEFT);
+//    leftS  += touchRead(BUTTON_GPIO_LEFT_SELECT);
     rightA += touchRead(BUTTON_GPIO_RIGHT);
     checkCount++;
 
@@ -45,6 +49,7 @@ void buttonTask(void* parameter) {
   buttonState->setTop(ButtonState::up,    upA    / checkCount);
   buttonState->setTop(ButtonState::down,  downA  / checkCount);
   buttonState->setTop(ButtonState::left,  leftA  / checkCount);
+//  buttonState->setTop(ButtonState::leftS, leftS  / checkCount);
   buttonState->setTop(ButtonState::right, rightA / checkCount);
 
   while(true) {
@@ -53,6 +58,7 @@ void buttonTask(void* parameter) {
     buttonState->set(ButtonState::up,    touchRead(BUTTON_GPIO_UP));
     buttonState->set(ButtonState::down,  touchRead(BUTTON_GPIO_DOWN));
     buttonState->set(ButtonState::left,  touchRead(BUTTON_GPIO_LEFT));
+//    buttonState->set(ButtonState::leftS, touchRead(BUTTON_GPIO_LEFT_SELECT));
     buttonState->set(ButtonState::right, touchRead(BUTTON_GPIO_RIGHT));
 
     delay(50);

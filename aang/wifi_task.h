@@ -14,6 +14,7 @@ void wifiTask(void* parameter);
 struct WifiTaskParameter {
   DevicesHistory* devicesHistory;
   DevicesHistory* apDevicesHistory;
+  DevicesHistory* probeDevicesHistory;
 };
 
 typedef struct

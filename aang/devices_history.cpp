@@ -124,9 +124,11 @@ void DevicesHistory::clean() {
   
     count = 0;
 
-    for(int deviceIndex = 0; deviceIndex < 100; deviceIndex++) {
+    for(int deviceIndex = 0; deviceIndex < DEVICES_HISTORY_SIZE; deviceIndex++) {
       history[deviceIndex].clean();
     }
+/*
+*/
 
     xSemaphoreGive(xCountSemaphore);
   }      

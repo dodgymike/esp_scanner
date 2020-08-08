@@ -7,17 +7,18 @@
 
 class ButtonState {
   private:
-    bool buttonStates[BUTTON_STATE_HISTORY_SIZE][6];
-    int buttonStatesIndex[6];
-    int  buttonTops[6];
+    bool buttonStates[BUTTON_STATE_HISTORY_SIZE][8];
+    int buttonStatesIndex[8];
+    int  buttonTops[8];
     
   public:
-    static const int up    = 0;
-    static const int down  = 1;
-    static const int right = 2;
-    static const int left  = 3;
-    static const int a     = 4;
-    static const int b     = 5;
+    static const int up        = 0;
+    static const int down      = 1;
+    static const int right     = 2;
+    static const int left      = 3;
+    static const int a         = 4;
+    static const int b         = 5;
+    static const int leftS     = 6;
   
     SemaphoreHandle_t xButtonSemaphore;
 

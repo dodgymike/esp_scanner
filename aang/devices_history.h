@@ -3,9 +3,18 @@
 
 #include <Arduino.h>
 
-#define DEVICE_ADDRESS_SIZE (50)
+#define DEVICE_ADDRESS_SIZE (200)
 #define DEVICE_HISTORY_SIZE (120)
 #define DEVICE_HISTORY_BUFFERS (1)
+
+#define LOCATION_HISTORY_BUFFERS (3)
+
+#define DEVICES_HISTORY_SCAN_MODE_NONE    (-1)
+#define DEVICES_HISTORY_SCAN_MODE_BTLE    (0)
+#define DEVICES_HISTORY_SCAN_MODE_WIFI    (1)
+
+#define DEVICES_HISTORY_SIZE (50)
+
 
 class DeviceHistory {
   private:
@@ -45,13 +54,6 @@ class DeviceHistory {
     void clean();
 };
 
-
-#define LOCATION_HISTORY_BUFFERS (3)
-
-#define DEVICES_HISTORY_SCAN_MODE_NONE    (-1)
-#define DEVICES_HISTORY_SCAN_MODE_BTLE    (0)
-#define DEVICES_HISTORY_SCAN_MODE_WIFI    (1)
-
 class DevicesHistory {
   private:
     int count;
@@ -62,7 +64,7 @@ class DevicesHistory {
       
   public: 
     SemaphoreHandle_t xDevicesSemaphore;
-    DeviceHistory history[100];
+    DeviceHistory history[DEVICES_HISTORY_SIZE];
 
     int locationSignalLevels[LOCATION_HISTORY_BUFFERS][DEVICE_HISTORY_SIZE];
     int locationSignalLevelsIndex[LOCATION_HISTORY_BUFFERS];

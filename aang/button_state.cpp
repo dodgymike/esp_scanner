@@ -49,7 +49,7 @@ bool ButtonState::pressed(int button) {
 ButtonState::ButtonState()
   : xButtonSemaphore(xSemaphoreCreateMutex())
 {
-  for(int i = 0; i < 6; i++) {
+  for(int i = 0; i < 8; i++) {
     for(int historyIndex = 0; historyIndex < BUTTON_STATE_HISTORY_SIZE; historyIndex++) {
       buttonStates[historyIndex][i] = false;
     }
