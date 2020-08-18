@@ -6,56 +6,23 @@
 #include "button_state.h"
 #include "bluetooth_task.h"
 #include "wifi_task.h"
+#include "mag_acc_gyro.h"
 #include "devices_history.h"
 
 #include <BLEDevice.h>
 
 #include <TFT_eSPI.h>
 
-#include <BitBang_I2C.h>
-
 #define BaudRate 115200
 
 #define GRAPH_HEIGHT (20.0f)
 
-/*
-lis3mdl
-LSM6DS33
-*/
-
-#define LIS3MDL_SA1_HIGH_ADDRESS  0b0011110
-#define LIS3MDL_SA1_LOW_ADDRESS   0b0011100
 
 TFT_eSPI tft = TFT_eSPI();       // Invoke custom library
 
 ButtonState* buttonState = NULL;
+MagAccGyroTaskParameter* magParameter = NULL;
 
-#define SDA_PIN 5
-#define SCL_PIN 17
-
-BBI2C bbi2c;
-
-uint8_t WHO_AM_I    = 0x0F;
-
-uint8_t CTRL_REG1   = 0x20;
-uint8_t CTRL_REG2   = 0x21;
-uint8_t CTRL_REG3   = 0x22;
-uint8_t CTRL_REG4   = 0x23;
-uint8_t CTRL_REG5   = 0x24;
-
-uint8_t STATUS_REG  = 0x27;
-uint8_t OUT_X_L     = 0x28;
-uint8_t OUT_X_H     = 0x29;
-uint8_t OUT_Y_L     = 0x2A;
-uint8_t OUT_Y_H     = 0x2B;
-uint8_t OUT_Z_L     = 0x2C;
-uint8_t OUT_Z_H     = 0x2D;
-uint8_t TEMP_OUT_L  = 0x2E;
-uint8_t TEMP_OUT_H  = 0x2F;
-uint8_t INT_CFG     = 0x30;
-uint8_t INT_SRC     = 0x31;
-uint8_t INT_THS_L   = 0x32;
-uint8_t INT_THS_H   = 0x33;
 
 int deviceOffset = 0;
 int apDeviceOffset = 0;
@@ -98,6 +65,7 @@ void setup()
 
   Serial.println("BUTTON");
   buttonState = new ButtonState();
+  magParameter = new MagAccGyroTaskParameter();
 
   histories = new WifiTaskParameter();
   histories->apDevicesHistory = new DevicesHistory();
@@ -115,75 +83,14 @@ void setup()
     2,                 /* Priority of the task. */
     NULL);             /* Task handle. */
 
-  memset(&bbi2c, 0, sizeof(bbi2c));
-  bbi2c.bWire = 0; // use bit bang, not wire library
-  bbi2c.iSDA = SDA_PIN;
-  bbi2c.iSCL = SCL_PIN;
-
-  I2CInit(&bbi2c, 100000L);
-  delay(100); // allow devices to power up
-
-  Serial.println("==============================================");
-  Serial.println(I2CDiscoverDevice(&bbi2c, LIS3MDL_SA1_HIGH_ADDRESS) == 17);
-  delay(5000);
-
-  uint8_t whoAmIBuffer[1];
-  bzero(whoAmIBuffer, 1);
-  I2CReadRegister(&bbi2c, LIS3MDL_SA1_HIGH_ADDRESS, WHO_AM_I, whoAmIBuffer, 1);
-  Serial.println("==============================================");
-  Serial.println(whoAmIBuffer[0] == 0x3D);
-  Serial.println(whoAmIBuffer[0]);
-  delay(500);
-
-  uint8_t initBuffer1[2] = {
-    // 0x70 = 0b01110000
-    // OM = 11 (ultra-high-performance mode for X and Y); DO = 100 (10 Hz ODR)
-    CTRL_REG1,
-    0x70
-  };
-  I2CWrite(&bbi2c, LIS3MDL_SA1_HIGH_ADDRESS, initBuffer1, 2);
-  bzero(initBuffer1, 2);
-  I2CReadRegister(&bbi2c, LIS3MDL_SA1_HIGH_ADDRESS, CTRL_REG1, &(initBuffer1[0]), 1);
-  Serial.println("==============================================");
-  Serial.println(initBuffer1[0] == 0x70);
-  delay(500);
-
-
-  uint8_t initBuffer2[2] = {
-    // 0x00 = 0b00000000
-    // FS = 00 (+/- 4 gauss full scale)
-    CTRL_REG2,
-    0x00,
-  };
-  I2CWrite(&bbi2c, LIS3MDL_SA1_HIGH_ADDRESS, initBuffer2, 2);
-  I2CReadRegister(&bbi2c, LIS3MDL_SA1_HIGH_ADDRESS, CTRL_REG2, &(initBuffer2[0]), 1);
-  Serial.println("==============================================");
-  Serial.println(initBuffer2[0] == 0x00);
-  delay(500);
-
-  uint8_t initBuffer3[2] = {
-    // 0x00 = 0b00000000
-    // MD = 00 (continuous-conversion mode)
-    CTRL_REG3,
-    0x00
-  };
-  I2CWrite(&bbi2c, LIS3MDL_SA1_HIGH_ADDRESS, initBuffer3, 2);
-  I2CReadRegister(&bbi2c, LIS3MDL_SA1_HIGH_ADDRESS, CTRL_REG3, &(initBuffer3[0]), 1);
-  Serial.println("==============================================");
-  Serial.println(initBuffer3[0] == 0x00);
-  delay(500);
-
-  uint8_t initBuffer4[2] = {
-    // 0x0C = 0b00001100
-    // OMZ = 11 (ultra-high-performance mode for Z)
-    CTRL_REG4,
-    0x0C,
-  };
-  I2CWrite(&bbi2c, LIS3MDL_SA1_HIGH_ADDRESS, initBuffer4, 2);
-  I2CReadRegister(&bbi2c, LIS3MDL_SA1_HIGH_ADDRESS, CTRL_REG4, &(initBuffer4[0]), 1);
-  Serial.println("==============================================");
-  Serial.println(initBuffer4[0] == 0x0C);
-  delay(500);
+  Serial.println("Starting magAccGyroTask");
+  xTaskCreate(
+    magAccGyroTask,       /* Task function. */
+    "magAccGyroTask",     /* String with name of task. */
+    2000,             /* Stack size in words. */
+    (void*)magParameter,              /* Parameter passed as input of the task */
+    2,                 /* Priority of the task. */
+    NULL);             /* Task handle. */
 }
 
 void loop()
@@ -457,50 +364,6 @@ void loop()
   } else if(mode == MODE_SHOW_PROBE_DEVICE) {
     showDevice(histories->probeDevicesHistory, probeDeviceOffset);
   }
-
-/*
-  unsigned char ucMap[16];
-
-  I2CScan(&bbi2c, ucMap);
-  I2CRead(uint8_t u8Address, uint8_t *pu8Data, int iLength);
-  I2CReadRegister(uint8_t iAddr, uint8_t u8Register, uint8_t *pData, int iLen);
-  I2CWrite(uint8_t iAddr, uint8_t *pData, int iLen); 
-*/
-
-  
-//  uint8_t initBuffer[2] = {
-//    OUT_X_L | 0x80,
-////    OUT_X_L | 0x06,
-//  };
-//  I2CWrite(&bbi2c, LIS3MDL_SA1_HIGH_ADDRESS, initBuffer, 1);
-
-  uint16_t valueL;
-  uint16_t valueH;
-  
-  uint8_t magXYZBytes[6];
-  bzero(magXYZBytes, 6);
-  
-//  I2CRead(&bbi2c, LIS3MDL_SA1_HIGH_ADDRESS, magXYZBytes, 6);
-  I2CReadRegister(&bbi2c, LIS3MDL_SA1_HIGH_ADDRESS, OUT_X_L, &(magXYZBytes[0]), 1);
-  I2CReadRegister(&bbi2c, LIS3MDL_SA1_HIGH_ADDRESS, OUT_X_H, &(magXYZBytes[1]), 1);
-  I2CReadRegister(&bbi2c, LIS3MDL_SA1_HIGH_ADDRESS, OUT_Y_L, &(magXYZBytes[2]), 1);
-  I2CReadRegister(&bbi2c, LIS3MDL_SA1_HIGH_ADDRESS, OUT_Y_H, &(magXYZBytes[3]), 1);
-  I2CReadRegister(&bbi2c, LIS3MDL_SA1_HIGH_ADDRESS, OUT_Z_L, &(magXYZBytes[4]), 1);
-  I2CReadRegister(&bbi2c, LIS3MDL_SA1_HIGH_ADDRESS, OUT_Z_H, &(magXYZBytes[5]), 1);
-
-  for(int i = 0; i < 3; i++) {
-    uint16_t valueL = magXYZBytes[(i * 2) + 0];
-    uint16_t valueH = magXYZBytes[(i * 2) + 1];
-    Serial.print((valueH << 8) + valueL);
-    Serial.print(":");
-  }
-  Serial.println("");
-
-/*
-Device found at 0x1E, type = Unknown
-Device found at 0x5D, type = LPS25H
-Device found at 0x6B, type = LSM6DS3
-*/
 }
 
 #define PIXELS_PER_DEGREE (360 / DEVICE_HISTORY_SIZE)
