@@ -112,7 +112,23 @@ struct MagAccGyroTaskParameter {
   int16_t gyroY[HISTORY_LENGTH];
   int16_t gyroZ[HISTORY_LENGTH];
 
+  int16_t magXMax = -32000;
+  int16_t magXMin =  32000;
+  int16_t magYMax = -32000;
+  int16_t magYMin =  32000;
+  int16_t magZMax = -32000;
+  int16_t magZMin =  32000;
+
+  int16_t magXOffset = 0;
+  int16_t magYOffset = 0;
+  int16_t magZOffset = 0;
+
+  int16_t magXRange = 0;
+  int16_t magYRange = 0;
+  int16_t magZRange = 0;
+
   int historyIndex = 0;
+  long historyCount = 0;
 };
 
 #endif

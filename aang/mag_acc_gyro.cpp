@@ -182,7 +182,19 @@ void magAccGyroTask(void* parameter) {
 
   float degrees_per_radian = 180 / 3.14159;
 
-  Serial.println("magX magY magZ accX accY accZ");
+  bzero(magAccGyroTaskParameter->magX, HISTORY_LENGTH);
+  bzero(magAccGyroTaskParameter->magY, HISTORY_LENGTH);
+  bzero(magAccGyroTaskParameter->magZ, HISTORY_LENGTH);
+
+  bzero(magAccGyroTaskParameter->accX, HISTORY_LENGTH);
+  bzero(magAccGyroTaskParameter->accY, HISTORY_LENGTH);
+  bzero(magAccGyroTaskParameter->accZ, HISTORY_LENGTH);
+
+  bzero(magAccGyroTaskParameter->gyroX, HISTORY_LENGTH);
+  bzero(magAccGyroTaskParameter->gyroY, HISTORY_LENGTH);
+  bzero(magAccGyroTaskParameter->gyroZ, HISTORY_LENGTH);
+
+  Serial.println("magX\tmagY\tmagZ\tmagXMax\tmagXMin\tmagYMax\tmagYMin\tmagZMax\tmagZMin");
   
   while(true) {
   /*
@@ -255,6 +267,8 @@ void magAccGyroTask(void* parameter) {
     magAccGyroTaskParameter->gyroY[magAccGyroTaskParameter->historyIndex] = gyro[1];
     magAccGyroTaskParameter->gyroZ[magAccGyroTaskParameter->historyIndex] = gyro[2];
 
+    magAccGyroTaskParameter->historyCount++;
+
     magAccGyroTaskParameter->historyIndex++;
     if(magAccGyroTaskParameter->historyIndex >= HISTORY_LENGTH) {
       magAccGyroTaskParameter->historyIndex = 0;
@@ -290,22 +304,77 @@ void magAccGyroTask(void* parameter) {
     gyroAcc[1] /= HISTORY_LENGTH;
     gyroAcc[2] /= HISTORY_LENGTH;
 
+  if(magAccGyroTaskParameter->historyCount > HISTORY_LENGTH) {
+    if(magAcc[0] > magAccGyroTaskParameter->magXMax) {
+      magAccGyroTaskParameter->magXMax = magAcc[0];
+      magAccGyroTaskParameter->magXRange = (magAccGyroTaskParameter->magXMax - magAccGyroTaskParameter->magXMin);
+      magAccGyroTaskParameter->magXOffset = magAccGyroTaskParameter->magXMax - (magAccGyroTaskParameter->magXRange / 2);
+    }
+    if(magAcc[0] < magAccGyroTaskParameter->magXMin) {
+      magAccGyroTaskParameter->magXMin = magAcc[0];
+      magAccGyroTaskParameter->magXRange = (magAccGyroTaskParameter->magXMax - magAccGyroTaskParameter->magXMin);
+      magAccGyroTaskParameter->magXOffset = magAccGyroTaskParameter->magXMax - (magAccGyroTaskParameter->magXRange / 2);
+    }
+    if(magAcc[1] > magAccGyroTaskParameter->magYMax) {
+      magAccGyroTaskParameter->magYMax = magAcc[1];
+      magAccGyroTaskParameter->magYRange = (magAccGyroTaskParameter->magYMax - magAccGyroTaskParameter->magYMin);
+      magAccGyroTaskParameter->magYOffset = magAccGyroTaskParameter->magYMax - (magAccGyroTaskParameter->magYRange / 2);
+    }
+    if(magAcc[1] < magAccGyroTaskParameter->magYMin) {
+      magAccGyroTaskParameter->magYMin = magAcc[1];
+      magAccGyroTaskParameter->magYRange = (magAccGyroTaskParameter->magYMax - magAccGyroTaskParameter->magYMin);
+      magAccGyroTaskParameter->magYOffset = magAccGyroTaskParameter->magYMax - (magAccGyroTaskParameter->magYRange / 2);
+    }
+    if(magAcc[2] > magAccGyroTaskParameter->magZMax) {
+      magAccGyroTaskParameter->magZMax = magAcc[2];
+      magAccGyroTaskParameter->magZRange = (magAccGyroTaskParameter->magZMax - magAccGyroTaskParameter->magZMin);
+      magAccGyroTaskParameter->magZOffset = magAccGyroTaskParameter->magZMax - (magAccGyroTaskParameter->magZRange / 2);
+    }
+    if(magAcc[2] < magAccGyroTaskParameter->magZMin) {
+      magAccGyroTaskParameter->magZMin = magAcc[2];
+      magAccGyroTaskParameter->magZRange = (magAccGyroTaskParameter->magZMax - magAccGyroTaskParameter->magZMin);
+      magAccGyroTaskParameter->magZOffset = magAccGyroTaskParameter->magZMax - (magAccGyroTaskParameter->magZRange / 2);
+    }
+  }
+
     char posBuffer[100];
 //    sprintf(posBuffer, "mag % .5d:% .5d:% .5d gyro % .5d:% .5d:% .5d acc % .5d:% .5d:% .5d", mag[0], mag[1], mag[2], gyro[0], gyro[1], gyro[2], acc[0], acc[1], acc[2]);
 //    Serial.println(posBuffer);
   
 //    sprintf(posBuffer, "mag % .5d:% .5d:% .5d gyro % .5d:% .5d:% .5d acc % .5d:% .5d:% .5d", magAcc[0], magAcc[1], magAcc[2], gyroAcc[0], gyroAcc[1], gyroAcc[2], accAcc[0], accAcc[1], accAcc[2]);
 //    sprintf(posBuffer, "%d\t%d\t%d\t%d\t%d\t%d", magAcc[0], magAcc[1], magAcc[2], accAcc[0], accAcc[1], accAcc[2]);
-    sprintf(posBuffer, "%d\t%d\t%d", magAcc[0], magAcc[1], magAcc[2]);
-    Serial.print(posBuffer);
 
     vector<float> m;
     vector<float> a;
 
-    m.x = 100.0f * ((float)magAcc[0]) / ((float)6842);
-    m.y = 100.0f * ((float)magAcc[1]) / ((float)6842);
-    m.z = 100.0f * ((float)magAcc[2]) / ((float)6842);
+    magAcc[0] -= magAccGyroTaskParameter->magXOffset;
+    magAcc[1] -= magAccGyroTaskParameter->magYOffset;
+    magAcc[2] -= magAccGyroTaskParameter->magZOffset;
 
+//    sprintf(posBuffer, "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d", 
+//      magAcc[0], 
+//      magAcc[1], 
+//      magAcc[2],
+//      magAccGyroTaskParameter->magXMax,
+//      magAccGyroTaskParameter->magXMin,
+//      magAccGyroTaskParameter->magYMax,
+//      magAccGyroTaskParameter->magYMin,
+//      magAccGyroTaskParameter->magZMax,
+//      magAccGyroTaskParameter->magZMin
+//    );
+//    Serial.print(posBuffer);
+
+    m.x = 1000.0f * ((float)magAcc[0]) / ((float)magAccGyroTaskParameter->magXRange);
+    m.y = 1000.0f * ((float)magAcc[1]) / ((float)magAccGyroTaskParameter->magYRange);
+    m.z = 1000.0f * ((float)magAcc[2]) / ((float)magAccGyroTaskParameter->magZRange);
+
+//    sprintf(posBuffer, "%d\t%d\t%d", 
+//      int(m.x), 
+//      int(m.y), 
+//      int(m.z)
+//    );
+//    Serial.print(posBuffer);
+    
     a.x = accAcc[0];
     a.y = accAcc[1];
     a.z = accAcc[2];
@@ -314,6 +383,13 @@ void magAccGyroTask(void* parameter) {
     vector_normalize(&a);
     vector_normalize(&m);
     
+//    sprintf(posBuffer, "%d\t%d\t%d", 
+//      int(m.x * 1000.0), 
+//      int(m.y * 1000.0), 
+//      int(m.z * 1000.0)
+//    );
+//    Serial.print(posBuffer);
+
     // work out angles between a and the various axes
     float magnitude_a = sqrt(vector_dot(&a, &a));
     float magnitude_m = sqrt(vector_dot(&m, &m));
@@ -329,6 +405,15 @@ void magAccGyroTask(void* parameter) {
     int m_y_angle = int(acos(m_y_dot / (magnitude_y * magnitude_m)) * degrees_per_radian);
     int m_z_angle = int(acos(m_z_dot / (magnitude_z * magnitude_m)) * degrees_per_radian);
 
+    float az = 10.0 * atan2(m.x, m.y) * 180 / M_PI;
+    sprintf(posBuffer, "%d\t%d\t%d\t%d", 
+      int(m_x_angle * 1000.0), 
+      int(m_y_angle * 1000.0), 
+      int(m_z_angle * 1000.0),
+      int(az)
+    );
+    Serial.print(posBuffer);
+    
 //    Serial.print(" mRot x ");
 //    Serial.print(m_x_angle);
 //    Serial.print(" y ");
