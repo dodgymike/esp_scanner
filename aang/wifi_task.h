@@ -7,6 +7,8 @@
 #include "esp_wifi_types.h"
 #include "esp_bt.h"
 
+#include "mag_acc_gyro.h"
+
 //extern DevicesHistory* devicesHistory;
 
 void wifiTask(void* parameter);
@@ -15,6 +17,7 @@ struct WifiTaskParameter {
   DevicesHistory* devicesHistory;
   DevicesHistory* apDevicesHistory;
   DevicesHistory* probeDevicesHistory;
+  MagAccGyroTaskParameter* magParameter;
 };
 
 typedef struct

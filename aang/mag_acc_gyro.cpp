@@ -31,6 +31,30 @@ void vector_normalize(vector<float> *a)
   a->z /= mag;
 }
 
+void vector_rotate(vector<float> *m, float xRot, float yRot, vector<float> *mRotated) {
+  float cosBeta  = cos(xRot);
+  float sinBeta  = sin(xRot);
+  float sinYotta = sin(yRot);
+  float cosYotta = sin(yRot);
+
+/*
+  mRotated->x =  cosBeta + (sinBeta * sinYotta) + (sinBeta * cosYotta);
+  mRotated->y =  cosBeta + cosYotta             - sinYotta;
+  mRotated->z = -sinBeta + (cosBeta * sinYotta) + (cosBeta * cosYotta);
+*/
+/*
+*/
+  mRotated->x =  (m->x * cosYotta) + (m->z * sinYotta);
+  mRotated->y =  m->y;
+  mRotated->z = (-m->x * sinYotta) + (m->z * cosYotta);
+
+  mRotated->x =  m->x;
+  mRotated->y = (m->y * cosBeta) - (m->z * sinBeta);
+  mRotated->z = (m->y * sinBeta) + (m->z * cosBeta);
+/*
+*/
+}
+
 void magAccGyroTask(void* parameter) {
   MagAccGyroTaskParameter* magAccGyroTaskParameter = (MagAccGyroTaskParameter*)parameter;
 
@@ -91,9 +115,10 @@ void magAccGyroTask(void* parameter) {
 
   uint8_t initBuffer1[2] = {
     // 0x70 = 0b01110000
+    // 0x7C = 0b01111100
     // OM = 11 (ultra-high-performance mode for X and Y); D0 = 111 (80Hz ODR) //DO = 100 (10 Hz ODR)
     CTRL_REG1,
-    0x7C
+    0x70
   };
   I2CWrite(&bbi2c, LIS3MDL_SA1_HIGH_ADDRESS, initBuffer1, 2);
   bzero(initBuffer1, 2);
@@ -181,6 +206,7 @@ void magAccGyroTask(void* parameter) {
   z.z = 1;
 
   float degrees_per_radian = 180 / 3.14159;
+  float half_pi_in_radians = 3.14159 / 2;
 
   bzero(magAccGyroTaskParameter->magX, HISTORY_LENGTH);
   bzero(magAccGyroTaskParameter->magY, HISTORY_LENGTH);
@@ -347,10 +373,55 @@ void magAccGyroTask(void* parameter) {
     vector<float> m;
     vector<float> a;
 
-    magAcc[0] -= magAccGyroTaskParameter->magXOffset;
-    magAcc[1] -= magAccGyroTaskParameter->magYOffset;
-    magAcc[2] -= magAccGyroTaskParameter->magZOffset;
+    float magnitude_x = 1.0f;
+    float magnitude_y = 1.0f;
+    float magnitude_z = 1.0f;
 
+    a.x = accAcc[0];
+    a.y = accAcc[1];
+    a.z = accAcc[2];
+
+
+//    float a_x_dot = vector_dot(&a, &x);
+//    float a_y_dot = vector_dot(&a, &y);
+//    float a_z_dot = vector_dot(&a, &z);
+    
+//    float magnitude_a = sqrt(vector_dot(&a, &a));
+//    float a_x_angle = acos(a_x_dot / (magnitude_x * magnitude_a));
+//    float a_y_angle = acos(a_y_dot / (magnitude_y * magnitude_a));
+//    float a_z_angle = acos(a_z_dot / (magnitude_z * magnitude_a));
+
+
+    float a_x_angle = 0.0; //asin(a.z / a.x);
+    float a_y_angle = 0.0; //asin(a.z / a.y);
+    float a_z_angle = 0.0; //asin(a.x / a.y);
+
+    if(a.y != 0.0) {
+      a_y_angle = atan2(a.z, a.y) - half_pi_in_radians;
+      a_z_angle = atan2(a.x, a.y) - half_pi_in_radians;
+    }
+    if(a.x != 0.0) {
+      a_x_angle = atan2(a.z, a.x) - half_pi_in_radians;
+    }
+
+    vector_normalize(&a);
+
+//    Serial.print(" aRot x ");
+//    Serial.print(a_x_angle);
+//    Serial.print(" y ");
+//    Serial.print(a_y_angle);
+//    Serial.print(" z ");
+//    Serial.print(a_z_angle);
+//
+//    magAcc[0] -= magAccGyroTaskParameter->magXOffset;
+//    magAcc[1] -= magAccGyroTaskParameter->magYOffset;
+//    magAcc[2] -= magAccGyroTaskParameter->magZOffset;
+
+      magAccGyroTaskParameter->magXAdj = magAcc[0] - magAccGyroTaskParameter->magXOffset;
+      magAccGyroTaskParameter->magYAdj = magAcc[1] - magAccGyroTaskParameter->magYOffset;
+      magAccGyroTaskParameter->magZAdj = magAcc[2] - magAccGyroTaskParameter->magZOffset;
+
+//
 //    sprintf(posBuffer, "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d", 
 //      magAcc[0], 
 //      magAcc[1], 
@@ -364,9 +435,9 @@ void magAccGyroTask(void* parameter) {
 //    );
 //    Serial.print(posBuffer);
 
-    m.x = 1000.0f * ((float)magAcc[0]) / ((float)magAccGyroTaskParameter->magXRange);
-    m.y = 1000.0f * ((float)magAcc[1]) / ((float)magAccGyroTaskParameter->magYRange);
-    m.z = 1000.0f * ((float)magAcc[2]) / ((float)magAccGyroTaskParameter->magZRange);
+    m.x = 1000.0f * ((float)magAccGyroTaskParameter->magXAdj) / ((float)magAccGyroTaskParameter->magXRange);
+    m.y = 1000.0f * ((float)magAccGyroTaskParameter->magYAdj) / ((float)magAccGyroTaskParameter->magYRange);
+    m.z = 1000.0f * ((float)magAccGyroTaskParameter->magZAdj) / ((float)magAccGyroTaskParameter->magZRange);
 
 //    sprintf(posBuffer, "%d\t%d\t%d", 
 //      int(m.x), 
@@ -375,13 +446,15 @@ void magAccGyroTask(void* parameter) {
 //    );
 //    Serial.print(posBuffer);
     
-    a.x = accAcc[0];
-    a.y = accAcc[1];
-    a.z = accAcc[2];
-    
+    float magnitude_m = sqrt(vector_dot(&m, &m));
+
+    vector<float> mRotated;
+    vector<float> mRotatedNegative;
+
     // normalise m & a
-    vector_normalize(&a);
-    vector_normalize(&m);
+//    vector_normalize(&m);
+    vector_rotate(&m, a_x_angle, a_y_angle, &mRotated);
+    vector_rotate(&m, -a_x_angle, -a_y_angle, &mRotatedNegative);
     
 //    sprintf(posBuffer, "%d\t%d\t%d", 
 //      int(m.x * 1000.0), 
@@ -391,29 +464,56 @@ void magAccGyroTask(void* parameter) {
 //    Serial.print(posBuffer);
 
     // work out angles between a and the various axes
-    float magnitude_a = sqrt(vector_dot(&a, &a));
-    float magnitude_m = sqrt(vector_dot(&m, &m));
-
-    float magnitude_x = 1.0f;
-    float magnitude_y = 1.0f;
-    float magnitude_z = 1.0f;
-
+/*         
     float m_x_dot = vector_dot(&m, &x);
     float m_y_dot = vector_dot(&m, &y);
     float m_z_dot = vector_dot(&m, &z);
     int m_x_angle = int(acos(m_x_dot / (magnitude_x * magnitude_m)) * degrees_per_radian);
     int m_y_angle = int(acos(m_y_dot / (magnitude_y * magnitude_m)) * degrees_per_radian);
     int m_z_angle = int(acos(m_z_dot / (magnitude_z * magnitude_m)) * degrees_per_radian);
+*/
 
-    float az = 10.0 * atan2(m.x, m.y) * 180 / M_PI;
-    sprintf(posBuffer, "%d\t%d\t%d\t%d", 
-      int(m_x_angle * 1000.0), 
-      int(m_y_angle * 1000.0), 
-      int(m_z_angle * 1000.0),
-      int(az)
+    int az1 = int(10.0 * atan2(m.x, m.y) * degrees_per_radian);
+    int az2 = int(10.0 * atan2(mRotated.x, mRotated.y) * degrees_per_radian);
+    int az3 = int(10.0 * atan2(mRotatedNegative.x, mRotatedNegative.y) * degrees_per_radian);
+//    sprintf(posBuffer, "%d\t%d\t%d\t%d\t%d\t%d", 
+//      int(az1), 
+//      int(az2), 
+//      int(az3),
+//      int(a_x_angle * 1000.0),
+//      int(a_y_angle * 1000.0),
+//      int(a_z_angle * 1000.0)
+//    );
+//    sprintf(posBuffer, "%d\t%d\t%d", 
+//      int(a_x_angle * 1000.0),
+//      int(a_y_angle * 1000.0),
+//      int(a_z_angle * 1000.0)
+//    );
+    sprintf(posBuffer, "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d", 
+      int(a.x * 1000.0),
+      int(a.y * 1000.0),
+      int(a.z * 1000.0),
+//      int(m.x * 1000.0),
+//      int(m.y * 1000.0),
+//      int(m.z * 1000.0),
+      magAcc[0],
+      magAcc[1],
+      magAcc[2],
+      magAccGyroTaskParameter->magXAdj,
+      magAccGyroTaskParameter->magYAdj,
+      magAccGyroTaskParameter->magZAdj,
+      int(a_x_angle * 1000.0 * degrees_per_radian),
+      int(a_y_angle * 1000.0 * degrees_per_radian),
+      int(a_z_angle * 1000.0 * degrees_per_radian),
+      az1,
+      az2,
+      az3
     );
     Serial.print(posBuffer);
-    
+
+//    sprintf(posBuffer, "%d", int(az));
+//    Serial.print(posBuffer);
+        
 //    Serial.print(" mRot x ");
 //    Serial.print(m_x_angle);
 //    Serial.print(" y ");
@@ -439,22 +539,8 @@ void magAccGyroTask(void* parameter) {
 
 */
 
-    float a_x_dot = vector_dot(&a, &x);
-    float a_y_dot = vector_dot(&a, &y);
-    float a_z_dot = vector_dot(&a, &z);
-    int a_x_angle = int(acos(a_x_dot / (magnitude_x * magnitude_a)) * degrees_per_radian);
-    int a_y_angle = int(acos(a_y_dot / (magnitude_y * magnitude_a)) * degrees_per_radian);
-    int a_z_angle = int(acos(a_z_dot / (magnitude_z * magnitude_a)) * degrees_per_radian);
-
-//    Serial.print(" aRot x ");
-//    Serial.print(a_x_angle);
-//    Serial.print(" y ");
-//    Serial.print(a_y_angle);
-//    Serial.print(" z ");
-//    Serial.print(a_z_angle);
-
-    float a_m_dot = vector_dot(&a, &m);
-    int a_m_angle = int(acos(a_m_dot / (magnitude_m * magnitude_a)) * degrees_per_radian);
+//    float a_m_dot = vector_dot(&a, &m);
+//    int a_m_angle = int(acos(a_m_dot / (magnitude_m * magnitude_a)) * degrees_per_radian);
 
 //    Serial.print(" am ");
 //    Serial.print(a_m_angle);

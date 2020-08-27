@@ -96,7 +96,7 @@ LSM6DS33
 
 void magAccGyroTask(void* parameter);
 
-#define HISTORY_LENGTH (20)
+#define HISTORY_LENGTH (40)
 
 
 struct MagAccGyroTaskParameter {
@@ -127,6 +127,10 @@ struct MagAccGyroTaskParameter {
   int16_t magYRange = 0;
   int16_t magZRange = 0;
 
+  int16_t magXAdj = 0;
+  int16_t magYAdj = 0;
+  int16_t magZAdj = 0;
+  
   int historyIndex = 0;
   long historyCount = 0;
 };

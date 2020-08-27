@@ -65,12 +65,12 @@ void setup()
 
   Serial.println("BUTTON");
   buttonState = new ButtonState();
-  magParameter = new MagAccGyroTaskParameter();
 
   histories = new WifiTaskParameter();
   histories->apDevicesHistory = new DevicesHistory();
   histories->devicesHistory = new DevicesHistory();
   histories->probeDevicesHistory = new DevicesHistory();
+  histories->magParameter = new MagAccGyroTaskParameter();
 
   deviceOffset = 0;
 
@@ -88,7 +88,7 @@ void setup()
     magAccGyroTask,       /* Task function. */
     "magAccGyroTask",     /* String with name of task. */
     2000,             /* Stack size in words. */
-    (void*)magParameter,              /* Parameter passed as input of the task */
+    (void*)(histories->magParameter),              /* Parameter passed as input of the task */
     2,                 /* Priority of the task. */
     NULL);             /* Task handle. */
 }
@@ -110,6 +110,9 @@ void loop()
   } else {
     tft.println("None");
   }
+
+  tft.fillScreen(TFT_BLACK);
+  tft.drawLine(120, 120, 120 + (histories->magParameter->magXAdj / 20), 120 - (histories->magParameter->magYAdj / 20), TFT_WHITE);
 
   if(mode == MODE_SHOW_DEVICES) {
     tft.setCursor(0, 0);
